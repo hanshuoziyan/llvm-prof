@@ -80,6 +80,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
 {
    ProfileInfo& PI = getAnalysis<ProfileInfo>();
    double AbsoluteTiming = 0.0, BlockTiming = 0.0, MpiTiming = 0.0, CallTiming = 0.0;
+   double AllIrNum = 0.0;//add by haomeng. The num of ir
    for(TimingSource* S : Sources){
       if (isa<BBlockTiming>(S)
           && BlockTiming < DBL_EPSILON) { // BlockTiming is Zero
@@ -96,6 +97,12 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                size_t exec_times = PI.getExecutionCount(BB);
                double exec_count = BT->count(*BB);
                double timing = exec_times * exec_count;
+               if (isa<IrinstTiming>(BT))//add by haomeng.
+               {
+                  auto IRT = cast<IrinstTiming>(BT);
+                  double IR_C = IRT->ir_count(*BB);
+                  AllIrNum += (exec_times * IR_C);
+               }
                if(timing > MaxProd){
                   MaxProd = timing;
                   MaxCount = exec_count;
@@ -155,6 +162,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
    outs()<<"Call Timing: "<<CallTiming<<" ns\n";
    outs()<<"Timing: "<<AbsoluteTiming<<" ns\n";
+   outs()<<"Inst Num: "<< AllIrNum << "\n";
    return false;
 }
 

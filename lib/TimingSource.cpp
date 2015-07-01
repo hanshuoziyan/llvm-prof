@@ -283,6 +283,16 @@ double IrinstTiming::count(BasicBlock& BB) const
       counts += params[classify(&I)];
    return counts;
 }
+//add by haomeng. Calculate the num of ir
+double IrinstTiming::ir_count(BasicBlock& BB) const
+{
+   double counts = 0.0;
+   for(auto& I:BB)
+   {
+      counts++;
+   }
+   return counts;
+}
 void IrinstTiming::load_irinst(const char* file, double* cpu_times)
 {
    static const std::map<StringRef, IrinstTiming::EnumTy> InstMap = 

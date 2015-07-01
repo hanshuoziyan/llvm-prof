@@ -181,6 +181,9 @@ class IrinstTiming : public BBlockTiming,
 
    double count(llvm::Instruction& I) const; // caculation part
    double count(llvm::BasicBlock& BB) const override; // caculation part
+
+   //add by haomeng, Calculate the num of instruction
+   double ir_count(llvm::BasicBlock& BB) const;
 };
 
 class IrinstMaxTiming: public IrinstTiming
