@@ -81,6 +81,8 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    ProfileInfo& PI = getAnalysis<ProfileInfo>();
    double AbsoluteTiming = 0.0, BlockTiming = 0.0, MpiTiming = 0.0, CallTiming = 0.0;
    double AllIrNum = 0.0;//add by haomeng. The num of ir
+   double MPICallNUM = 0.0;//add by haomeng. The num of mpi callinst
+   double AmountOfMpiComm = 0.0;//add by haomeng. The amount of commucation of mpi
    for(TimingSource* S : Sources){
       if (isa<BBlockTiming>(S)
           && BlockTiming < DBL_EPSILON) { // BlockTiming is Zero
@@ -103,6 +105,8 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                   double IR_C = IRT->ir_count(*BB);
                   AllIrNum += (exec_times * IR_C);
                }
+
+
                if(timing > MaxProd){
                   MaxProd = timing;
                   MaxCount = exec_count;
@@ -134,6 +138,15 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
             double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI)); // IO 模型
+
+            if(isa<LatencyTiming>(MT))//add by haomeng.
+            {
+               auto LTR = cast<LatencyTiming>(MT);
+               size_t BFreq = PI.getExecutionCount(BB);
+               MPICallNUM += BFreq;
+               AmountOfMpiComm += LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
+            }
+
 #ifndef NDEBUG
             if(TimingDebug)
                outs() << "  " << PI.getTrapedIndex(I)
@@ -163,6 +176,8 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    outs()<<"Call Timing: "<<CallTiming<<" ns\n";
    outs()<<"Timing: "<<AbsoluteTiming<<" ns\n";
    outs()<<"Inst Num: "<< AllIrNum << "\n";
+   outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
+   outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
    return false;
 }
 

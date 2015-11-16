@@ -184,6 +184,8 @@ class IrinstTiming : public BBlockTiming,
 
    //add by haomeng, Calculate the num of instruction
    double ir_count(llvm::BasicBlock& BB) const;
+   //add by haomeng, Calculate the num of instruction
+   //double mpi_count(llvm::BasicBlock& BB) const;
 };
 
 class IrinstMaxTiming: public IrinstTiming
@@ -246,6 +248,7 @@ class LatencyTiming : public MPITiming, public _timing_source::T<MPISpec>
 
    double count(const llvm::Instruction& I, double bfreq,
                 double count) const override;
+   double Comm_amount(const llvm::Instruction& I, double bfreq, double total) const;
 };
 
 enum LibFnSpec { SQRT, LOG, FABS, LibFnNumSpec };

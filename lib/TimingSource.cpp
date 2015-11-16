@@ -293,6 +293,32 @@ double IrinstTiming::ir_count(BasicBlock& BB) const
    }
    return counts;
 }
+/*
+double IrinstTiming::mpi_count(BasicBlock& BB) const
+{
+   double counts = 0.0;
+   int C = -1;
+   for(auto& I:BB)
+   {
+      C = -1;
+      CallInst* CI = dyn_cast<CallInst>(&I);
+      if(CI != NULL)
+      {
+         try{
+            C = lle::get_mpi_collection(CI);
+         }catch(const std::out_of_range& e){
+            //errs()<<"Haomeng Warning: out of range!\n";
+            continue;
+         }
+      }
+      else
+         continue;
+      if(C > -1)
+         counts++;
+   }
+   return counts;
+}
+*/
 void IrinstTiming::load_irinst(const char* file, double* cpu_times)
 {
    static const std::map<StringRef, IrinstTiming::EnumTy> InstMap = 
@@ -543,6 +569,27 @@ LatencyTiming::LatencyTiming()
    file_initializer = [](const char* file, double* param){
       load_and_init_with_map(file, param, MPIMap);
    };
+}
+
+double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, double total) const
+{
+   using namespace lle;
+   if(total<DBL_EPSILON) return 0.;
+   const CallInst* CI = dyn_cast<CallInst>(&I);
+   if(CI == NULL) return 0.;
+   MPICategoryType C = MPI_CT_P2P;
+   try{
+      C = lle::get_mpi_collection(CI);
+   }catch(const std::out_of_range& e){
+      return 0;
+   }
+   if (C == MPI_CT_P2P) {
+      return total * bfreq;
+   } else if (C <= MPI_CT_REDUCE2)
+      return C * total * log2(R) * bfreq;
+   else
+      return 2 * R * total * bfreq;
+
 }
 
 double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total) const
