@@ -25,6 +25,7 @@
  *  ----TimingSource::Register<LmbenchTiming>(...);
  *  |
  *  |
+ *  |
  *  |   At TimingSource.h, class TimingSource
  *  --->Register(...)
  *      {
@@ -34,15 +35,18 @@
  *  |   }
  *  |
  *  |
+ *  |
  *  |   At TimingSource.cpp
  *  --->TimingSource::Register_(...,std::function<TimingSource*()>&& func)
  *      {
- *          TimingSourceInfoEntry entry;---------------------------------struct TimingSourceInfoEntry
+ *          TimingSourceInfoEntry entry;-------------------------------->struct TimingSourceInfoEntry
  *          ...                                                          {
  *                                                                          ...
  *          //func is used to create an object of type T                    std::function<TimingSource*()> Creator;
  *          entry.Creator = func;                                        }
- *          TSIEntries.push_back(std::move(entry));----------------------vector<TimingSourceInfoEntry> TSIEntries;
+ *
+ *
+ *          TSIEntries.push_back(std::move(entry));--------------------->vector<TimingSourceInfoEntry> TSIEntries;
  *      }
  *
  *At the end of Initialization stage, there will a corrending TimingSourceInfoEntry object
