@@ -13,6 +13,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+/**
+ *How does TimingSource work?
+ *
+ *1. Initialization Stage
+ *
+ *      Check out TimingSource.cpp
+ *
+ *2. Parse -timing option and create corrending TimingSource class.
+ *
+ *      At llvm-prof.c
+ *  ----cl::opt<std::vector<TimingSource*>,false,TimingParser> Timing(...);
+ *  |
+ *  |
+ *  |
+ *  --->
+ */
 #include <ProfileInfo.h>
 #include <ProfileInfoLoader.h>
 #include <ProfileInfoWriter.h>

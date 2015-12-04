@@ -1,3 +1,60 @@
+/**
+ *The realtionship of Timng classes
+ *                     
+ *                     BBlockTiming--------LmbenchTiming
+ *                    /            \
+ *                   /              \
+ *                  /                \-----IrinstTiming------IrinstMaxTiming
+ *                 /
+ *                /
+ * TimgingSource  -----MPITiming-----------MPBenchReTiming---MPBenchTiming
+ *                \             \
+ *                 \             \
+ *                  \             \--------LatencyTiming
+ *                   \
+ *                    \
+ *                     LibCallTiming-------LibFnTiming
+ *
+ *
+ *How does TimingSource work?
+ *
+ *1. Initialization Stage
+ *Initializ some TimingSource classes with specific type.
+ *      
+ *      At the end of TimingSource.cpp.
+ *  ----TimingSource::Register<LmbenchTiming>(...);
+ *  |
+ *  |
+ *  |   At TimingSource.h, class TimingSource
+ *  --->Register(...)
+ *      {
+ *          template<class T>
+ *  --------TimingSource::Register_(...,[](){return new T;});
+ *  |       ...
+ *  |   }
+ *  |
+ *  |
+ *  |   At TimingSource.cpp
+ *  --->TimingSource::Register_(...,std::function<TimingSource*()>&& func)
+ *      {
+ *          TimingSourceInfoEntry entry;---------------------------------struct TimingSourceInfoEntry
+ *          ...                                                          {
+ *                                                                          ...
+ *          //func is used to create an object of type T                    std::function<TimingSource*()> Creator;
+ *          entry.Creator = func;                                        }
+ *          TSIEntries.push_back(std::move(entry));----------------------vector<TimingSourceInfoEntry> TSIEntries;
+ *      }
+ *
+ *At the end of Initialization stage, there will a corrending TimingSourceInfoEntry object
+ *for each type of TimingSource, and the object will be stored in TSIEntries.
+ *Notice that at the Initialization stage, there is no TimingSource or any other child classes'
+ *object are created, only the TimingSourceInfoEntry objects are created.
+ *
+ *
+ *2. Parse -timing option and create corrending TimingSource class.
+ *      
+ *      Check out llvm-prof.cpp
+ */
 #include "TimingSource.h"
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/CommandLine.h>
