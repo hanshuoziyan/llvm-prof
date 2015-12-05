@@ -13,6 +13,50 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+/**
+ *How does TimingSource work?
+ *
+ *1. Initialization Stage
+ *
+ *      Check out TimingSource.cpp
+ *
+ *2. Parse -timing option and create corrending TimingSource objects.
+ *
+ *      At llvm-prof.c
+ *  ----cl::opt<std::vector<TimingSource*>,false,TimingParser> Timing(...);
+ *  |
+ *  |
+ *  |
+ *  |   At llvm-prof.c struct TimingParser.
+ *  --->bool parse(...,TimingSourceList& Val)----------------typedef std::vector<TimingSource*> TimingSourceList;
+ *      {
+ *          do{
+ *              ...   
+ *  ------------TimingSource *TS = TimingSource::Construct(TimingKind);
+ *  |           if(TS) sotre TS in the variable Timing
+ *  |           ...
+ *  |       }while(...);
+ *  |   }
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.cpp
+ *  --->TimingSource::Construct(const StringRef Name)
+ *      {
+ *          first, determine whether the requested TimingSource type(TimingKind) has 
+ *          already been stored in TSIEntries.
+ *          if exist, then call the Creator() to create the corrending object and return it.
+ *          if not,   return NULL.
+ *      } 
+ *
+ *
+ *After this stage, the requested TimingSource objects are all stored in Timing.
+ *
+ *3. Calculate MPI time
+ *  
+ *      Check out passes.cpp    
+ */
 #include <ProfileInfo.h>
 #include <ProfileInfoLoader.h>
 #include <ProfileInfoWriter.h>
