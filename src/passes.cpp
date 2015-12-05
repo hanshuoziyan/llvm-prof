@@ -1,3 +1,45 @@
+/**
+ *
+ *How does TimingSource work?
+ *1. Initialization Stage
+ *
+ *      Check out TimingSource.cpp
+ *
+ *2. Parse -timing option and create corrending objects
+ *
+ *      Check out llvm-prof.cpp
+ *
+ *3. Calculate MPI time
+ *
+ *      At passes.cpp
+ *      if(isa<MPITiming>(S) && MpiTiming < DBL_EPSILON)//Only enter this if statement once
+ *      { 
+ *          auto MT = cast<MPITiming>(S);
+ *          auto S = PI.getAllTrapedValues(MPIFullInfo);//this S is not the same as the above S
+ *          ...
+ *          for(auto I : S)//for each MPI instruction I, get I's time
+ *          {
+ *              ...
+ *  ------------double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI));
+ *  |           ...
+ *  |           MpiTiming += timing;
+ *  |           }
+ *  |       }
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.cpp
+ *  --->LatencyTiming::count(const llvm::Instruction &I,double bfreq,double total)
+ *      {
+ *          //R is MPI_SIZE
+ *          first, determin the type of I(the variable C)-----------------------------------enum MPICategoryType
+ *          if I is p2p operation,        use bfreq*latency+total/bandwith                  {
+ *          if I is collective operation, use bfreq*latency+C*total*log2(R)/bandwith            MPI_CT_P2P     =0,
+ *          else                          use 2*R*(bfreq*latency+total/bandwith)                MPI_CT_REDUCE  =1,
+ *      }                                                                                       MPI_CT_REDUCE2 =2,
+ *                                                                                              MPI_CT_NSIDES  =3,
+ *                                                                                          }
+ */
 #include "passes.h"
 #include <ProfileInfo.h>
 #include <llvm/IR/Module.h>

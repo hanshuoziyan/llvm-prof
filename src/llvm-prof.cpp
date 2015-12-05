@@ -21,7 +21,7 @@
  *
  *      Check out TimingSource.cpp
  *
- *2. Parse -timing option and create corrending TimingSource classes.
+ *2. Parse -timing option and create corrending TimingSource objects.
  *
  *      At llvm-prof.c
  *  ----cl::opt<std::vector<TimingSource*>,false,TimingParser> Timing(...);
@@ -52,6 +52,10 @@
  *
  *
  *After this stage, the requested TimingSource objects are all stored in Timing.
+ *
+ *3. Calculate MPI time
+ *  
+ *      Check out passes.cpp    
  */
 #include <ProfileInfo.h>
 #include <ProfileInfoLoader.h>

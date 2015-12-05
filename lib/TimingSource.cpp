@@ -55,9 +55,13 @@
  *object are created, only the TimingSourceInfoEntry objects are created.
  *
  *
- *2. Parse -timing option and create corrending TimingSource class.
+ *2. Parse -timing option and create corrending TimingSource objects.
  *      
  *      Check out llvm-prof.cpp
+ *
+ *3. Calculate MPI time
+ *
+ *      Check out passes.cpp
  */
 #include "TimingSource.h"
 #include <llvm/Support/raw_ostream.h>
@@ -665,6 +669,9 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total) const
 {
    using namespace lle;
+3. Calculate MPI time
+*
+*   Check out passes.cpp
    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
    const CallInst* CI = dyn_cast<CallInst>(&I);
    if(CI == NULL) return 0.;
