@@ -47,11 +47,55 @@
  *          first, determine whether the requested TimingSource type(TimingKind) has 
  *          already been stored in TSIEntries.
  *          if exist, then call the Creator() to create the corrending object and return it.
+ *              As the object is creating, the file_initializer will be initialized with
+ *              load_and_init_with_map(file,param,MPIMap)(for latencytiming). This is used to
+ *              read latency file which contains infomation about mpi latency and bandwith.
  *          if not,   return NULL.
- *      } 
+ *      }
  *
  *
- *After this stage, the requested TimingSource objects are all stored in Timing.
+ *
+ *      At llvm-prof.cpp
+ *      cl::list<std::string> MergeFile(cl::Positional,cl::desc("<Merge file list>"),cl::ZeroOrMore);
+ *      This will read the timing source files' name into MergeFile
+ *
+ *
+ *      At llvm-prof.cpp
+ *  ----PassMgr.add(new ProfileTimingPrint(std::move(Timing.getValue()), MergeFile))
+ *  |
+ *  |
+ *  |
+ *  |   At passes.cpp
+ *  --->ProfileTimingPrint::ProfileTimingPrint(std::vector<TimingSource*>&& TS,
+ *                              std::vector<std::string>& Files):ModulePass(ID),Sources(TS)
+ *      {
+ *          ...
+ *          for(unsigned i=0;i<Sources.size();++i)
+ *          {
+ *  ------------Sources[i]->init_with_file(Files[i].c_str());
+ *  |            ...
+ *  |       }
+ *  |   }
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.cpp class TimingSource
+ *  --->init_with_file(const char* file)
+ *      {
+ *  --------init(std::bind(file_initializer,file,std::placeholders::_1));
+ *  |   }
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.cpp class TimingSource
+ *  --->init(std::function<void(double*)> func)
+ *      {
+ *          func(params.data());
+ *      }
+ *
+ *
+ *After this stage, the requested TimingSource objects are all stored in Timing and the corrending
+ *timing source file is read.
  *
  *3. Calculate MPI time
  *  
