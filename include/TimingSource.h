@@ -10,6 +10,7 @@ class FreeExpression;
 /* a timing source is used to count inst types in a basicblock */
 namespace llvm{
 struct TimingSourceInfoEntry;
+struct FitFormula;
 class TimingSource{
    public:
    static TimingSource* Construct(const llvm::StringRef Name);
@@ -113,6 +114,14 @@ struct TimingSourceInfoEntry {
    StringRef Name;
    StringRef Desc;
    std::function<TimingSource*()> Creator;
+};
+
+//now, the formula is a+bx
+struct FitFormula
+{
+    std::vector<double> constant;   //constant term, a
+    std::vector<double> firstorder; // first order term, b
+    std::vector<unsigned long> range; 
 };
 
 namespace _timing_source{
@@ -240,14 +249,16 @@ class LatencyTiming : public MPITiming, public _timing_source::T<MPISpec>
    public:
    typedef MPISpec EnumTy;
    static const char* Name;
+   std::map<string, FitFormula> MPIFitFunc; 
    static bool classof(const TimingSource* S) {
       return S->getKind() == Kind::Latency;
    }
 
    LatencyTiming();
 
+    //0 means datasize is fixed, 1 means processes num is fixed
    double count(const llvm::Instruction& I, double bfreq,
-                double count) const override;
+                double count, int fixed) const override;
    double Comm_amount(const llvm::Instruction& I, double bfreq, double total) const;
 };
 

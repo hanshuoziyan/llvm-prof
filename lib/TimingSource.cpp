@@ -78,6 +78,10 @@
 #include <stdio.h>
 #include <float.h>
 #include <functional>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <map>
 
 #include "FreeExpression.h"
 #include "ValueUtils.h"
@@ -140,6 +144,52 @@ static void load_and_init_with_map(const char* file, double* cpu_times, MapT& M)
       }
    }
    fclose(f);
+}
+
+static void load_and_init_with_func(const char* file, map<string,FitFormula>& mpifitfunc)
+{
+    string funcname;
+    unsigned long range;
+    char ctemp, linebuf[500];
+    FitFormula funcformula();
+    double constant, firstorder, secondorder;
+    std::map<string,FitFormula>::iterator it;
+
+    std::ifstream ifs(file,std::ifstream::in);
+    std::istringstream iss();
+
+    if(!ifs.is_open())
+    {
+        errs() << "Can not open file " << file << endl;
+        exit(-1);
+    }
+
+    ifs.getline(linebuf,500);
+    iss.str(linebuf);
+    
+    iss >> funcname;
+    while(ifs.good())
+    {
+        iss >> constant >> ctemp >> ctemp >> firstorder >> range >> range;
+        
+        if((it=mpifitfunc.find(funcname))==mpifitfunc.end())
+        {
+            funcformula.firstorder.push_back(firstorder);
+            funcformula.constant.push_back(constant);
+            funcformula.range.push_back(range);
+            mpifitfunc.insert(pair<string,FitFormula>(funcname,funcformula));
+        }
+        else
+        {
+            it->second.firstorder.push_back(firstorder);
+            it->second.constant.push_back(constant);
+            it->second.range.push_back(range);
+        }
+
+        ifs.getline(linebuf,500); 
+        iss.str(linebuf);
+        iss >> funcname;
+    }
 }
 
 void TimingSource::Register_(const char* name, const char* desc, std::function<TimingSource*()>&& func)
@@ -631,8 +681,8 @@ LatencyTiming::LatencyTiming()
       {"mpi_latency", MPI_LATENCY},
       {"mpi_bandwidth", MPI_BANDWIDTH}
    };
-   file_initializer = [](const char* file, double* param){
-      load_and_init_with_map(file, param, MPIMap);
+   file_initializer = [&MPIFitFunc](const char* file, double* param){
+      load_and_init_with_func(file, MPIFitFunc);
    };
 }
 
@@ -666,19 +716,61 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 
 }
 
-double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total) const
+double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total, int fixed) const
 {
    using namespace lle;
+   ostringstream outstring;
+    map<string,FitFormula>::iterator it;
    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
    const CallInst* CI = dyn_cast<CallInst>(&I);
    if(CI == NULL) return 0.;
-   double latency = get(MPI_LATENCY), bandwidth = get(MPI_BANDWIDTH);
-   MPICategoryType C = MPI_CT_P2P;
+   //double latency = get(MPI_LATENCY), bandwidth = get(MPI_BANDWIDTH);
+   MPICategoryType C = MPI_CT_SEND;
+
    try{
       C = lle::get_mpi_collection(CI);
    }catch(const std::out_of_range& e){
       return 0;
    }
+   
+    switch(C)
+    {
+        case MPI_CT_SEND:
+            if(fixed==0)
+            {
+                outstring << "mpi_send0" << total;
+                if((it=mpifitfunc.find(outstring.str()))!=mpifitfunc.end())
+                {
+                    //some kind of func
+                }
+                else { errs() << "no corrending func" << endl; return -1; }
+            }
+            else
+            {
+                outstring << "mpi_send1" << R;
+                if((it=mpifitfunc.find(outstring.str()))!=mpifitfunc.end())
+                {
+                    for(int i=0;i<it->second.range.size();i++)
+                    {
+                        if(total<it->second.range[i]+1)
+                            return it->second.constant[i]+it->second.firstorder[i]*total;
+                    }
+                }
+                else { errs() << "no corrending func" << endl; return -1; }
+            }
+            break;
+        case MPI_CT_ALLREDUCE:
+            break;
+        case MPI_CT_REDUCE:
+            break;
+        case MPI_CT_BCAST:
+            break;
+        case MPI_CT_ALLTOALL:
+            break;
+        default:
+            errs() << "out of range" << endl;
+            return -1;
+    }
    if (C == MPI_CT_P2P) {
       return bfreq * latency + total / bandwidth;
    } else if (C <= MPI_CT_REDUCE2)
