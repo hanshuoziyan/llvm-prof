@@ -116,11 +116,12 @@ struct TimingSourceInfoEntry {
    std::function<TimingSource*()> Creator;
 };
 
-//now, the formula is a+bx
+//now, the formula is a+bx+clog[x]
 struct FitFormula
 {
     std::vector<double> constant;   //constant term, a
     std::vector<double> firstorder; // first order term, b
+    std::vector<double> logcoffent; // c
     std::vector<unsigned long> range; 
 };
 

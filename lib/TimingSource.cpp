@@ -149,10 +149,11 @@ static void load_and_init_with_map(const char* file, double* cpu_times, MapT& M)
 static void load_and_init_with_func(const char* file, map<string,FitFormula>& mpifitfunc)
 {
     string funcname;
+    int i, flag;
     unsigned long range;
     char ctemp, linebuf[500];
     FitFormula funcformula();
-    double constant, firstorder, secondorder;
+    double constant, firstorder, logcoff;
     std::map<string,FitFormula>::iterator it;
 
     std::ifstream ifs(file,std::ifstream::in);
@@ -170,12 +171,49 @@ static void load_and_init_with_func(const char* file, map<string,FitFormula>& mp
     iss >> funcname;
     while(ifs.good())
     {
-        iss >> constant >> ctemp >> ctemp >> firstorder >> range >> range;
+//        iss >> constant >> ctemp >> ctemp >> firstorder >> range >> range;
+        flag = 0;
+        range = 0;
+        constant = firstorder = logcoff = 0.0;
+        iss >> constant >> ctemp >> ctemp;
+        if(ctemp=='+' || ctemp=='-');
+        else constant = 0.0;
+        i = 0;
+        while(linebuf[i]!='\n' && linebuf[i]!='L' && linebuf[i]!=',')
+        {
+            if(linebuf[i]=='-' && linebuf[i+1]==' ') flag = -i;
+            else if(linebuf[i]=='+') flag = i;
+            else if(linebuf[i]=='x')
+            {
+                if(flag<0) { iss.str(linebuf-i); iss >> firstorder; firstorder = -firstorder; }
+                else       { iss.str(linebuf+i); iss >> firstorder; }
+                break;
+            }
+            i++;
+        }
+        while(linebuf[i]!='\n')
+        {
+            if(linebuf[i]=='-' && linebuf[i+1]==' ') flag = -i;
+            else if(linebuf[i]=='+') flag = i;
+            else if(linebuf[i]=='L')
+            {
+                if(flag<0) { iss.str(linebuf-i); iss >> logcoff; logcoff = -logcoff; }
+                else       { iss.str(linebuf+i); iss >> firstorder; }
+                range = 1000;
+                break;
+            }
+            i++;
+        }
+        if(range==0)
+        {
+            iss >> range >> range;
+        }
         
         if((it=mpifitfunc.find(funcname))==mpifitfunc.end())
         {
             funcformula.firstorder.push_back(firstorder);
             funcformula.constant.push_back(constant);
+            funcformula.logcoffent.push_back(logcoff);
             funcformula.range.push_back(range);
             mpifitfunc.insert(pair<string,FitFormula>(funcname,funcformula));
         }
@@ -183,6 +221,7 @@ static void load_and_init_with_func(const char* file, map<string,FitFormula>& mp
         {
             it->second.firstorder.push_back(firstorder);
             it->second.constant.push_back(constant);
+            it->second.logcoffent.push_back(logcoff);
             it->second.range.push_back(range);
         }
 
@@ -716,11 +755,31 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 
 }
 
+double do_cal(const char* name, double bfreq, double randsize[], int fixed, map<string,FitFormula>& mpifitfunc)
+{
+    ostringstream outstring;
+    map<string,FitFormula>::iterator it;
+
+    outstring << name << fixed << randsize[fixed];
+    if((it=mapfitfunc.find(outstring.str()))!=mpifitfunc.end())
+    {
+        for(int i=0;i<it->second.range.size();i++)
+            if(randsize[1-fixed]<it->second.range[i]+1)
+                return it->second.constant[i]+it->second.firstorder[i]*randsize[1-fixed]+
+                       it->second.logcoffent[i]*log2(randsize[1-fixed]);
+    }
+    else
+    {
+        errs() << "can not find " << outstring.str() << "##" << endl;
+        return -1.0;
+    }
+}
+
 double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total, int fixed) const
 {
    using namespace lle;
-   ostringstream outstring;
-    map<string,FitFormula>::iterator it;
+   double randsize[2] = {R,total};
+
    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
    const CallInst* CI = dyn_cast<CallInst>(&I);
    if(CI == NULL) return 0.;
@@ -736,47 +795,19 @@ double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double tot
     switch(C)
     {
         case MPI_CT_SEND:
-            if(fixed==0)
-            {
-                outstring << "mpi_send0" << total;
-                if((it=mpifitfunc.find(outstring.str()))!=mpifitfunc.end())
-                {
-                    //some kind of func
-                }
-                else { errs() << "no corrending func" << endl; return -1; }
-            }
-            else
-            {
-                outstring << "mpi_send1" << R;
-                if((it=mpifitfunc.find(outstring.str()))!=mpifitfunc.end())
-                {
-                    for(int i=0;i<it->second.range.size();i++)
-                    {
-                        if(total<it->second.range[i]+1)
-                            return it->second.constant[i]+it->second.firstorder[i]*total;
-                    }
-                }
-                else { errs() << "no corrending func" << endl; return -1; }
-            }
-            break;
+            return do_cal("mpi_send",bfreq,randsize,fixed,map<string,mpifitfunc>);
         case MPI_CT_ALLREDUCE:
-            break;
+            return do_cal("mpi_allreduce",bfreq,randsize,fixed,map<string,mpifitfunc>);           
         case MPI_CT_REDUCE:
-            break;
+            return do_cal("mpi_reduce",bfreq,randsize,fixed,map<string,mpifitfunc>);
         case MPI_CT_BCAST:
-            break;
+            return do_cal("mpi_bcast",bfreq,randsize,fixed,map<string,mpifitfunc>);
         case MPI_CT_ALLTOALL:
-            break;
+            return do_cal("mpi_alltoall",bfreq,randsize,fixed,map<string,mpifitfunc>);
         default:
             errs() << "out of range" << endl;
             return -1;
     }
-   if (C == MPI_CT_P2P) {
-      return bfreq * latency + total / bandwidth;
-   } else if (C <= MPI_CT_REDUCE2)
-      return bfreq * latency + C * total * log2(R) / bandwidth;
-   else
-      return 2 * R * (bfreq * latency + total / bandwidth);
 }
 
 const char* LmbenchTiming::Name = TimingSource::Register<LmbenchTiming>(
