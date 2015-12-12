@@ -1,15 +1,15 @@
 #include "Profiling.h"
 #include <stdlib.h>
 
-static uint64_t *ArrayStart;
+static double *ArrayStart;
 static uint64_t NumElements;
 
 static void PredBlockProfAtExitHandler(void) {
-  write_profiling_data_long(BlockInfo64, ArrayStart, NumElements);
+  write_profiling_data_double(BlockInfoDouble, ArrayStart, NumElements);
 }
 
-int llvm_start_pred_block_profiling(int argc, const char** argv,
-                                    uint64_t* arrayStart, uint64_t numElements)
+int llvm_start_pred_double_block_profiling(int argc, const char** argv,
+                                    double* arrayStart, uint64_t numElements)
 {
   int Ret = save_arguments(argc, argv);
   ArrayStart = arrayStart;

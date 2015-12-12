@@ -7,6 +7,7 @@ set(SOURCES
   ValueProfiling.c
   MPIProfiling.c
   PredBlockProfiling.c
+  PredBlockDoubleProfiling.c
   )
 
 include_directories(

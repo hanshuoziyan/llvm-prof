@@ -27,6 +27,9 @@ namespace llvm {
   class Instruction;
   class GlobalVariable;
 
+  void InsertPredProfilingInitCall(Function *MainFn, const char *FnName,
+                               GlobalValue *Arr = 0,
+                               PointerType *arrayType = 0);
   void InsertProfilingInitCall(Function *MainFn, const char *FnName,
                                GlobalValue *Arr = 0,
                                PointerType *arrayType = 0);

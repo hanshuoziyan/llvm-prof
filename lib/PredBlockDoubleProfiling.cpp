@@ -1,5 +1,5 @@
 #include "preheader.h"
-#include "PredBlockProfiling.h"
+#include "PredBlockDoubleProfiling.h"
 #include "ProfilingUtils.h"
 
 #include <llvm/IR/Module.h>
@@ -12,14 +12,14 @@
 using namespace llvm;
 using namespace std;
 
-char PredBlockProfiler::ID = 0;
-PredBlockProfiler* PredBlockProfiler::ins = NULL;
+char PredBlockDoubleProfiler::ID = 0;
+PredBlockDoubleProfiler* PredBlockDoubleProfiler::ins = NULL;
 
-static RegisterPass<PredBlockProfiler> X("insert-pred-profiling", "Insert Block Predicate Profiling into Module", false, true);
+static RegisterPass<PredBlockDoubleProfiler> X("insert-pred-double-profiling", "Insert Block(double type of array) Predicate Profiling into Module", false, true);
 
-PredBlockProfiler::PredBlockProfiler():ModulePass(ID)
+PredBlockDoubleProfiler::PredBlockDoubleProfiler():ModulePass(ID)
 {
-   PredBlockProfiler::ins = this;
+   PredBlockDoubleProfiler::ins = this;
 }
 
 
@@ -36,13 +36,13 @@ static void IncrementBlockCounters(llvm::Value* Inc, unsigned Index, GlobalVaria
 
    // Load, increment and store the value back.
    Value* OldVal = Builder.CreateLoad(ElementPtr, "OldBlockCounter");
-   Value* NewVal = Builder.CreateAdd(
-       OldVal, Builder.CreateZExtOrBitCast(Inc, Type::getInt64Ty(Context)),
+   Value* NewVal = Builder.CreateFAdd(
+       OldVal, Builder.CreateSIToFP(Inc, Type::getDoubleTy(Context)),
        "NewBlockCounter");
    Builder.CreateStore(NewVal, ElementPtr);
 }
 
-bool PredBlockProfiler::runOnModule(Module& M)
+bool PredBlockDoubleProfiler::runOnModule(Module& M)
 {
    unsigned Idx = 0;
    IRBuilder<> Builder(M.getContext());
@@ -51,7 +51,7 @@ bool PredBlockProfiler::runOnModule(Module& M)
    for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F)
       NumBlocks += F->size();
 
-  Type*ATy = ArrayType::get(Type::getInt64Ty(M.getContext()),NumBlocks);
+	Type*ATy = ArrayType::get(Type::getDoubleTy(M.getContext()),NumBlocks);
 	GlobalVariable* Counters = new GlobalVariable(M, ATy, false,
 			GlobalVariable::InternalLinkage, Constant::getNullValue(ATy),
 			"BlockPredCounters");
@@ -75,6 +75,6 @@ bool PredBlockProfiler::runOnModule(Module& M)
    }
 
 	Function* Main = M.getFunction("main");
-	InsertProfilingInitCall(Main, "llvm_start_pred_block_profiling", Counters);
+	InsertPredProfilingInitCall(Main, "llvm_start_pred_double_block_profiling", Counters);
 	return true;
 }

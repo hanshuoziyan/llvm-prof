@@ -20,6 +20,7 @@ set(SOURCES
   TimingSource.cpp
   MPIProfiling.cpp
   PredBlockProfiling.cpp
+  PredBlockDoubleProfiling.cpp
   datatype.h
   InstTemplate.cpp
   FreeExpression.cpp

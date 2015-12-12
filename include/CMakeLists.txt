@@ -15,6 +15,7 @@ set(INCLUDES
 	ProfileInfoMerge.h
    TimingSource.h
    PredBlockProfiling.h
+   PredBlockDoubleProfiling.h
 	)
 
 install(FILES ${INCLUDES}
