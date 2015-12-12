@@ -146,24 +146,21 @@ static void load_and_init_with_map(const char* file, double* cpu_times, MapT& M)
    fclose(f);
 }
 
-static void load_and_init_with_func(const char* file, map<string,FitFormula>& mpifitfunc)
+static void load_and_init_with_func(const char* file, std::map<std::string,FitFormula>& mpifitfunc)
 {
-    string funcname;
-    int i;
+    std::string funcname;
     unsigned long range;
     char ctemp, linebuf[500];
-    FitFormula funcformula();
+    FitFormula funcformula;
     double num, constant, firstorder, logcoff;
-    std::map<string,FitFormula>::iterator it;
-
+    std::map<std::string,FitFormula>::iterator it;
     std::ifstream ifs(file,std::ifstream::in);
 
     if(!ifs.is_open())
     {
-        errs() << "Can not open file " << file << endl;
+        errs() << "Can not open file " << file << "\n";
         exit(-1);
     }
-
     
     while(ifs.good())
     {
@@ -216,7 +213,7 @@ static void load_and_init_with_func(const char* file, map<string,FitFormula>& mp
             funcformula.constant.push_back(constant);
             funcformula.logcoffent.push_back(logcoff);
             funcformula.range.push_back(range);
-            mpifitfunc.insert(pair<string,FitFormula>(funcname,funcformula));
+            mpifitfunc.insert(std::pair<std::string,FitFormula>(funcname,funcformula));
         }
         else
         {
@@ -717,11 +714,23 @@ LatencyTiming::LatencyTiming()
       {"mpi_latency", MPI_LATENCY},
       {"mpi_bandwidth", MPI_BANDWIDTH}
    };
-   file_initializer = [&MPIFitFunc](const char* file, double* param){
+/*   file_initializer = [](const char* file, double* param){
       load_and_init_with_func(file, MPIFitFunc);
    };
+*/ 
+    file_initializer = load_files;
 }
 
+std::map<std::string,FitFormula> LatencyTiming::MPIFitFunc = []
+{
+    std::map<std::string,FitFormula> ret;
+    return ret;
+}();
+
+void LatencyTiming::load_files(const char* file, double* param)
+{
+    load_and_init_with_func(file,MPIFitFunc);
+}
 double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, double total) const
 {
    using namespace lle;
@@ -752,13 +761,14 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 
 }
 
-double do_cal(const char* name, double bfreq, double randsize[], int fixed, map<string,FitFormula>& mpifitfunc)
+double do_cal(const char* name, double bfreq, double randsize[], int fixed, 
+              std::map<std::string,FitFormula>& mpifitfunc)
 {
-    ostringstream outstring;
-    map<string,FitFormula>::iterator it;
+    std::ostringstream outstring;
+    std::map<std::string,FitFormula>::iterator it;
 
     outstring << name << fixed << randsize[fixed];
-    if((it=mapfitfunc.find(outstring.str()))!=mpifitfunc.end())
+    if((it=mpifitfunc.find(outstring.str()))!=mpifitfunc.end())
     {
         for(int i=0;i<it->second.range.size();i++)
             if(randsize[1-fixed]<it->second.range[i]+1)
@@ -767,21 +777,41 @@ double do_cal(const char* name, double bfreq, double randsize[], int fixed, map<
     }
     else
     {
-        errs() << "can not find " << outstring.str() << "##" << endl;
+        errs() << "can not find " << outstring.str() << "##\n";
         return -1.0;
     }
 }
+double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total) const
+{
+    using namespace lle;
+    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
+    const CallInst* CI = dyn_cast<CallInst>(&I);
+    if(CI==NULL) return 0.;
+    double latency = get(MPI_LATENCY), bandwidth = get(MPI_BANDWIDTH);
+    MPICategoryType C = MPI_CT_P2P;
+    try{
+       C = lle::get_mpi_collection(CI);
+    }catch(const std::out_of_range& e){
+        return 0.;
+    }
+    if(C==MPI_CT_P2P){
+        return bfreq * latency + total / bandwidth;
+    }else if(C <= MPI_CT_REDUCE2)
+        return bfreq * latency + C * total * log2(R) / bandwidth;
+    else
+        return 2 * R * (bfreq * latency + total / bandwidth);
+}
 
-double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total, int fixed) const
+double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double total, int fixed)
 {
    using namespace lle;
-   double randsize[2] = {R,total};
+   double randsize[2] = {R*1.0,total};
 
    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
    const CallInst* CI = dyn_cast<CallInst>(&I);
    if(CI == NULL) return 0.;
    //double latency = get(MPI_LATENCY), bandwidth = get(MPI_BANDWIDTH);
-   MPICategoryType C = MPI_CT_SEND;
+   MPICategoryType C = MPI_CT_P2P;
 
    try{
       C = lle::get_mpi_collection(CI);
@@ -791,18 +821,18 @@ double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double tot
    
     switch(C)
     {
-        case MPI_CT_SEND:
-            return do_cal("mpi_send",bfreq,randsize,fixed,map<string,mpifitfunc>);
+        case MPI_CT_P2P:
+            return do_cal("mpi_send",bfreq,randsize,fixed,MPIFitFunc);
         case MPI_CT_ALLREDUCE:
-            return do_cal("mpi_allreduce",bfreq,randsize,fixed,map<string,mpifitfunc>);           
+            return do_cal("mpi_allreduce",bfreq,randsize,fixed,MPIFitFunc);           
         case MPI_CT_REDUCE:
-            return do_cal("mpi_reduce",bfreq,randsize,fixed,map<string,mpifitfunc>);
+            return do_cal("mpi_reduce",bfreq,randsize,fixed,MPIFitFunc);
         case MPI_CT_BCAST:
-            return do_cal("mpi_bcast",bfreq,randsize,fixed,map<string,mpifitfunc>);
+            return do_cal("mpi_bcast",bfreq,randsize,fixed,MPIFitFunc);
         case MPI_CT_ALLTOALL:
-            return do_cal("mpi_alltoall",bfreq,randsize,fixed,map<string,mpifitfunc>);
+            return do_cal("mpi_alltoall",bfreq,randsize,fixed,MPIFitFunc);
         default:
-            errs() << "out of range" << endl;
+            errs() << "out of range\n";
             return -1;
     }
 }

@@ -93,6 +93,8 @@ class MPITiming: public TimingSource
    }
    virtual double count(const llvm::Instruction& I, double bfreq,
                         double count) const = 0; // io part
+   double newcount(const llvm::Instruction& I, double bfreq,
+                        double count, int fixed){ return -1.0; }
    protected:
    MPITiming(Kind K, size_t N);
    unsigned R;
@@ -250,16 +252,18 @@ class LatencyTiming : public MPITiming, public _timing_source::T<MPISpec>
    public:
    typedef MPISpec EnumTy;
    static const char* Name;
-   std::map<string, FitFormula> MPIFitFunc; 
+   static std::map<std::string, FitFormula> MPIFitFunc; 
    static bool classof(const TimingSource* S) {
       return S->getKind() == Kind::Latency;
    }
-
+   static void load_files(const char*, double *);
    LatencyTiming();
 
-    //0 means datasize is fixed, 1 means processes num is fixed
+    //0 means process num is fixed, 1 means datasize is fixed
    double count(const llvm::Instruction& I, double bfreq,
-                double count, int fixed) const override;
+                double count) const override;
+   double newcount(const llvm::Instruction& I, double breq,
+                double count, int fixed);
    double Comm_amount(const llvm::Instruction& I, double bfreq, double total) const;
 };
 

@@ -180,7 +180,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const CallInst* CI = cast<CallInst>(I);
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
-            double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI)); // IO 模型
+            double timing = MT->newcount(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI),0); // IO 模型
 
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
