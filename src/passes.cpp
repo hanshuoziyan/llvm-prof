@@ -144,8 +144,6 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                auto LTR = cast<LatencyTiming>(MT);
                size_t BFreq = PI.getExecutionCount(BB);
                MPICallNUM += BFreq;
-               errs() << BFreq << "\n";
-               errs() << BB->getParent()->getName()<<"\t"<<BB->getName() << "\t" << PI.getExecutionCount(CI) <<"\n";
                AmountOfMpiComm += LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
             }
 

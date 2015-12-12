@@ -584,19 +584,19 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
       return 0;
    }
    if (C == MPI_CT_P2P) {
-      outs() <<"======"<< I <<"\t"<< total << "\t"  << bfreq << "\n";
-      return total * bfreq;
+      //outs() <<"======"<< I <<"\t"<< total << "\t"  << bfreq << "\n";
+      return total;
    } else if (C <= MPI_CT_REDUCE2)
    {
-      outs() <<"======"<< I <<"\t"<< total << "\t"  << bfreq << "\n";
+      //outs() <<"======"<< I <<"\t"<< total << "\t"  << bfreq << "\n";
       //return C * total * log2(R) * bfreq;
-      return total*bfreq;
+      return total;
    }
    else
    {
-      outs() <<"======"<< I <<"\t"<< total << "\t"  << bfreq << "\n";
+      //outs() <<"======"<< I <<"\t"<< total << "\t"  << bfreq << "\n";
       //return 2 * R * total * bfreq;
-      return total * bfreq;
+      return total;
    }
 
 }
