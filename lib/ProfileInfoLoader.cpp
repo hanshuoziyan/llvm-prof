@@ -65,6 +65,11 @@ static inline uint64_t ByteSwap(uint64_t Var, bool Really)
           ((Var & (255UL << 48U)) >> 40U) |
           ((Var & (255UL << 56U)) >> 56U);
 }
+//add by haomeng
+static inline double ByteSwap(double Var, bool Really)
+{
+   if (!Really) return Var;
+}
 
 static uint64_t AddCounts(uint64_t A, uint64_t B) {
   // If either value is undefined, use the other.
@@ -110,6 +115,37 @@ static void ReadProfilingBlock(const char *ToolName, FILE *F,
     for (IntT i = 0; i != NumEntries; ++i) {
       Data[i] = AddCounts(ByteSwap(TempSpace[i], true), Data[i]);
     }
+  }
+}
+static void ReadProfilingBlockDouble(const char *ToolName, FILE *F,
+                               bool ShouldByteSwap,
+                               std::vector<uint64_t> &Data) {
+  // Read the number of entries...
+  uint64_t NumEntries;
+  if (fread(&NumEntries, sizeof(uint64_t), 1, F) != 1) {
+    errs() << ToolName << ": data packet truncated!\n";
+    perror(0);
+    exit(1);
+  }
+  NumEntries = ByteSwap(NumEntries, ShouldByteSwap);
+
+  // Read the counts...
+  std::vector<double> TempSpace(NumEntries);
+
+  // Read in the block of data...
+  if (fread(&TempSpace[0], sizeof(double)*NumEntries, 1, F) != 1) {
+    errs() << ToolName << ": data packet truncated!\n";
+    perror(0);
+    exit(1);
+  }
+
+  // Make sure we have enough space... The space is initialised to -1 to
+  // facitiltate the loading of missing values for OptimalEdgeProfiling.
+  if (Data.size() < NumEntries)
+    Data.resize(NumEntries, 0);
+
+  for (uint64_t i = 0; i != NumEntries; ++i) {
+     Data[i] = (uint64_t)TempSpace[i]; 
   }
 }
 
@@ -254,6 +290,10 @@ ProfileInfoLoader::ProfileInfoLoader(const char *ToolName,
 
    case EdgeInfo64:
       ReadProfilingBlock<uint64_t>(ToolName, F, ShouldByteSwap, EdgeCounts);
+      break;
+   //add by haomeng
+   case BlockInfoDouble:
+      ReadProfilingBlockDouble(ToolName, F, ShouldByteSwap, BlockCounts);
       break;
 
    default:

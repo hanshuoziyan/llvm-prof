@@ -23,7 +23,7 @@ namespace {
 using namespace llvm;
 using namespace lle;
 char MPIProfiler::ID = 0;
-static RegisterPass<MPIProfiler> X("insert-mpi-profiling", 
+static RegisterPass<MPIProfiler> X("insert-mpi-profiling",
       "insert profiling for mpi communication instruction", false, false);
 
 static void IncrementMPICounter(Value* Inc, unsigned Index, GlobalVariable* Counters, IRBuilder<>& Builder)
@@ -91,4 +91,3 @@ bool MPIProfiler::runOnModule(llvm::Module &M)
   InsertProfilingInitCall(Main, "llvm_start_mpi_profiling", Counters);
   return true;
 }
-

@@ -11,14 +11,14 @@ namespace llvm{
       static PredBlockProfiler* ins;
 
       //Block -> {step value, insert point}
-      typedef llvm::DenseMap<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*> > TrapTy; 
+      typedef llvm::DenseMap<llvm::BasicBlock*, std::pair<llvm::Value*, llvm::Value*> > TrapTy;
 		TrapTy BlockTraps;
 		public:
 		static char ID;
 		PredBlockProfiler();
       //if opt enable -insert-pred-profiling
       static bool Avaliable(){ return ins != NULL;}
-		/* 
+		/*
        * insert a block increase counter in InsertTail
        * only if avaliable
        */

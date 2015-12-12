@@ -229,6 +229,7 @@ int main(int argc, char **argv) {
      // access to additional information not exposed via the ProfileInfo
      // interface.
      ProfileInfoLoader PIL(argv[0], ProfileDataFile);
+     errs() << "nohao\n";
      PassMgr.add(new ProfileInfoPrinterPass(PIL));
   }
   PassMgr.run(*M);

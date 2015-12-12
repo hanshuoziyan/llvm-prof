@@ -36,8 +36,8 @@ static void IncrementBlockCounters(llvm::Value* Inc, unsigned Index, GlobalVaria
 
    // Load, increment and store the value back.
    Value* OldVal = Builder.CreateLoad(ElementPtr, "OldBlockCounter");
-   Value* NewVal = Builder.CreateAdd(
-       OldVal, Builder.CreateZExtOrBitCast(Inc, Type::getInt64Ty(Context)),
+   Value* NewVal = Builder.CreateFAdd(
+       OldVal, Builder.CreateSIToFP(Inc, Type::getDoubleTy(Context)),
        "NewBlockCounter");
    Builder.CreateStore(NewVal, ElementPtr);
 }
@@ -48,10 +48,10 @@ bool PredBlockProfiler::runOnModule(Module& M)
    IRBuilder<> Builder(M.getContext());
 
    unsigned NumBlocks = 0;
-   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) 
+   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F)
       NumBlocks += F->size();
 
-	Type*ATy = ArrayType::get(Type::getInt64Ty(M.getContext()),NumBlocks);
+	Type*ATy = ArrayType::get(Type::getDoubleTy(M.getContext()),NumBlocks);
 	GlobalVariable* Counters = new GlobalVariable(M, ATy, false,
 			GlobalVariable::InternalLinkage, Constant::getNullValue(ATy),
 			"BlockPredCounters");

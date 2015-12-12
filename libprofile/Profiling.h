@@ -35,5 +35,7 @@ void write_profiling_data(enum ProfilingType PT, unsigned* Start,
                           unsigned NumElements);
 void write_profiling_data_long(enum ProfilingType PT, uint64_t* Start,
                                uint64_t NumElements);
-
+//add by haomeng
+void write_profiling_data_double(enum ProfilingType PT, double* Start,
+                               uint64_t NumElements);
 #endif

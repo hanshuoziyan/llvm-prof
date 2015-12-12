@@ -36,6 +36,7 @@ enum ProfilingType {
    MPIFullInfo  = 103, /* an expand MPI Inst profiling info contain datatype */
    BlockInfo64  = 104, /* Block profiling information with 64bit */
    EdgeInfo64   = 105, /* Edge Profiling information with 64bit */
+   BlockInfoDouble   = 106, /* Block Profiling information with double */
 };
 
 // special flags used in value profiling

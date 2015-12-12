@@ -33,6 +33,8 @@ void llvm::InsertProfilingInitCall(Function *MainFn, const char *FnName,
   Type* NumElemTy
       = cast<ArrayType>(Array->getType()->getElementType())->getElementType();
   PointerType *UIntPtr = arrayType ? arrayType : PointerType::get(NumElemTy, 0);
+  //add by haomeng
+  NumElemTy = Type::getInt64Ty(Context);
   Module &M = *MainFn->getParent();
   Constant *InitFn = M.getOrInsertFunction(FnName, Type::getInt32Ty(Context),
                                            Type::getInt32Ty(Context),
