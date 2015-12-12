@@ -149,15 +149,14 @@ static void load_and_init_with_map(const char* file, double* cpu_times, MapT& M)
 static void load_and_init_with_func(const char* file, map<string,FitFormula>& mpifitfunc)
 {
     string funcname;
-    int i, flag;
+    int i;
     unsigned long range;
     char ctemp, linebuf[500];
     FitFormula funcformula();
-    double constant, firstorder, logcoff;
+    double num, constant, firstorder, logcoff;
     std::map<string,FitFormula>::iterator it;
 
     std::ifstream ifs(file,std::ifstream::in);
-    std::istringstream iss();
 
     if(!ifs.is_open())
     {
@@ -165,48 +164,50 @@ static void load_and_init_with_func(const char* file, map<string,FitFormula>& mp
         exit(-1);
     }
 
-    ifs.getline(linebuf,500);
-    iss.str(linebuf);
     
-    iss >> funcname;
     while(ifs.good())
     {
-//        iss >> constant >> ctemp >> ctemp >> firstorder >> range >> range;
-        flag = 0;
+        std::istringstream iss;
+        ifs.getline(linebuf,500);
+        iss.str(linebuf);
+        iss >> funcname;
+        
         range = 0;
         constant = firstorder = logcoff = 0.0;
-        iss >> constant >> ctemp >> ctemp;
-        if(ctemp=='+' || ctemp=='-');
-        else constant = 0.0;
-        i = 0;
-        while(linebuf[i]!='\n' && linebuf[i]!='L' && linebuf[i]!=',')
+        iss >> num;
+
+        while(iss >> ctemp)
         {
-            if(linebuf[i]=='-' && linebuf[i+1]==' ') flag = -i;
-            else if(linebuf[i]=='+') flag = i;
-            else if(linebuf[i]=='x')
+            if(ctemp=='+' || ctemp=='-')
             {
-                if(flag<0) { iss.str(linebuf-i); iss >> firstorder; firstorder = -firstorder; }
-                else       { iss.str(linebuf+i); iss >> firstorder; }
-                break;
+                iss.putback(ctemp);
+                constant = num;
+                iss >> num;
             }
-            i++;
-        }
-        while(linebuf[i]!='\n')
-        {
-            if(linebuf[i]=='-' && linebuf[i+1]==' ') flag = -i;
-            else if(linebuf[i]=='+') flag = i;
-            else if(linebuf[i]=='L')
+            else if(ctemp=='x')
             {
-                if(flag<0) { iss.str(linebuf-i); iss >> logcoff; logcoff = -logcoff; }
-                else       { iss.str(linebuf+i); iss >> firstorder; }
+                firstorder = num;
+                iss >> ctemp;
+                iss.putback(ctemp);
+                if(ctemp=='+' || ctemp=='-') iss >> num;
+            }
+            else if(ctemp=='L')
+            {
+                logcoff = num;
                 range = 1000;
                 break;
             }
-            i++;
-        }
-        if(range==0)
-        {
-            iss >> range >> range;
+            else if(ctemp==',')
+            {
+                iss >> range >> ctemp >> ctemp
+                    >> ctemp >> ctemp >> range;
+                break;
+            }
+            else
+            {
+                errs() << "something wrong in the formula\n";
+                exit(-1);
+            }
         }
         
         if((it=mpifitfunc.find(funcname))==mpifitfunc.end())
@@ -224,10 +225,6 @@ static void load_and_init_with_func(const char* file, map<string,FitFormula>& mp
             it->second.logcoffent.push_back(logcoff);
             it->second.range.push_back(range);
         }
-
-        ifs.getline(linebuf,500); 
-        iss.str(linebuf);
-        iss >> funcname;
     }
 }
 
