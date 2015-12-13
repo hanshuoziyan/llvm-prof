@@ -5,6 +5,7 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include <unordered_map>
 
@@ -104,5 +105,6 @@ MPICategoryType lle::get_mpi_collection(const llvm::CallInst* CI)
    Function* Called = dyn_cast<Function>(castoff(CV));
    if (Called == NULL)
       throw std::out_of_range("not considered mpi instruction collection");
+    outs() << "in get_mpi_collection##" << Called->getName() << "##\n";
    return MpiSpec.at(Called->getName()).first;
 }

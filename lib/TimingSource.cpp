@@ -605,6 +605,12 @@ void MPBenchReTiming::init_with_file(const char* file)
    }
 }
 
+double MPBenchReTiming::newcount(const llvm::Instruction &I, double bfreq,
+                                double total, int fixed) const
+{
+    return -1.0;
+}
+
 double MPBenchReTiming::count(const llvm::Instruction& I, double bfreq,
                                double total) const
 {
@@ -774,10 +780,11 @@ double do_cal(const char* name, double bfreq, double randsize[], int fixed,
             if(randsize[1-fixed]<it->second.range[i]+1)
                 return it->second.constant[i]+it->second.firstorder[i]*randsize[1-fixed]+
                        it->second.logcoffent[i]*log2(randsize[1-fixed]);
+        outs() << "size=" << randsize[1] << " is too big\n";
     }
     else
     {
-        errs() << "can not find " << outstring.str() << "##\n";
+        outs() << "can not find " << outstring.str() << "##\n";
         return -1.0;
     }
 }
@@ -802,10 +809,10 @@ double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double tot
         return 2 * R * (bfreq * latency + total / bandwidth);
 }
 
-double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double total, int fixed)
+double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double total, int fixed) const
 {
    using namespace lle;
-   double randsize[2] = {R*1.0,total};
+   double randsize[2] = {R*1.0,total/bfreq};
 
    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
    const CallInst* CI = dyn_cast<CallInst>(&I);
@@ -818,21 +825,27 @@ double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double 
    }catch(const std::out_of_range& e){
       return 0;
    }
-   
+   outs() << "R=" << R << "\ttotal=" << total << "\tfixed=" << fixed << "\n";
     switch(C)
     {
         case MPI_CT_P2P:
+            outs() << "mpi_ct_p2p\n";
+            randsize[0] = 2;
             return do_cal("mpi_send",bfreq,randsize,0,MPIFitFunc);
         case MPI_CT_ALLREDUCE:
+            outs() << "mpi_ct_allreduce\n";
             return do_cal("mpi_allreduce",bfreq,randsize,fixed,MPIFitFunc);           
         case MPI_CT_REDUCE:
+            outs() << "mpi_reduce\n";
             return do_cal("mpi_reduce",bfreq,randsize,fixed,MPIFitFunc);
         case MPI_CT_BCAST:
+            outs() << "mpi_ct_bcast\n";
             return do_cal("mpi_bcast",bfreq,randsize,fixed,MPIFitFunc);
         case MPI_CT_ALLTOALL:
+            outs() << "mpi_ct_alltoall\n";
             return do_cal("mpi_alltoall",bfreq,randsize,fixed,MPIFitFunc);
         default:
-            errs() << "out of range\n";
+            outs() << "out of range\n";
             return -1;
     }
 }

@@ -4,6 +4,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/Support/raw_ostream.h>
 
 class FreeExpression;
 
@@ -93,8 +94,8 @@ class MPITiming: public TimingSource
    }
    virtual double count(const llvm::Instruction& I, double bfreq,
                         double count) const = 0; // io part
-   double newcount(const llvm::Instruction& I, double bfreq,
-                        double count, int fixed){ return -1.0; }
+   virtual double newcount(const llvm::Instruction& I, double bfreq,
+                        double count, int fixed) const = 0;
    protected:
    MPITiming(Kind K, size_t N);
    unsigned R;
@@ -225,6 +226,8 @@ class MPBenchReTiming : public MPITiming
 
    double count(const llvm::Instruction &I, double bfreq,
                 double count) const override;
+    double newcount(const llvm::Instruction &I, double bfreq,
+                double count, int fixed) const override;
    void print(llvm::raw_ostream&) const override;
    protected: 
    FreeExpression* bandwidth;
@@ -263,7 +266,7 @@ class LatencyTiming : public MPITiming, public _timing_source::T<MPISpec>
    double count(const llvm::Instruction& I, double bfreq,
                 double count) const override;
    double newcount(const llvm::Instruction& I, double breq,
-                double count, int fixed);
+                double count, int fixed) const override;
    double Comm_amount(const llvm::Instruction& I, double bfreq, double total) const;
 };
 

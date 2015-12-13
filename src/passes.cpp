@@ -181,20 +181,21 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const CallInst* CI = cast<CallInst>(I);
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
-
+            
+            outs() << "call inst name##" << CI->getName() << "##\n";
             //0 means num of processes fixed, 1 means datasize fixed
             double timing = MT->newcount(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI),0); // IO 模型
             double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
-
+            
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
                auto LTR = cast<LatencyTiming>(MT);
                size_t BFreq = PI.getExecutionCount(BB);
                MPICallNUM += BFreq;
-               AmountOfMpiComm += LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
+               AmountOfMpiComm += 0;//LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
             }
 
-#ifndef NDEBUG
+#ifdef NDEBUG
             if(TimingDebug)
                outs() << "  " << PI.getTrapedIndex(I)
                       << "\tBB:" << PI.getExecutionCount(BB) << "\tT:" << timing
