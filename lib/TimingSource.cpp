@@ -822,7 +822,7 @@ double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double 
     switch(C)
     {
         case MPI_CT_P2P:
-            return do_cal("mpi_send",bfreq,randsize,fixed,MPIFitFunc);
+            return do_cal("mpi_send",bfreq,randsize,0,MPIFitFunc);
         case MPI_CT_ALLREDUCE:
             return do_cal("mpi_allreduce",bfreq,randsize,fixed,MPIFitFunc);           
         case MPI_CT_REDUCE:
