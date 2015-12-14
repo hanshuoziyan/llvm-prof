@@ -767,7 +767,7 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 
 }
 
-double do_cal(const char* name, double bfreq, double randsize[], int fixed, 
+double do_cal(const char* name, double randsize[], int fixed, 
               std::map<std::string,FitFormula>& mpifitfunc)
 {
     std::ostringstream outstring;
@@ -825,25 +825,27 @@ double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double 
    }catch(const std::out_of_range& e){
       return 0;
    }
-   outs() << "R=" << R << "\ttotal=" << total << "\tfixed=" << fixed << "\n";
+   outs() << "breq=" << bfreq << "\tR=" << R << "\ttotal=" << total << "\tfixed=" << fixed << "\n";
     switch(C)
     {
         case MPI_CT_P2P:
             outs() << "mpi_ct_p2p\n";
             randsize[0] = 2;
-            return do_cal("mpi_send",bfreq,randsize,0,MPIFitFunc);
+            return bfreq*do_cal("mpi_send",randsize,0,MPIFitFunc);
         case MPI_CT_ALLREDUCE:
             outs() << "mpi_ct_allreduce\n";
-            return do_cal("mpi_allreduce",bfreq,randsize,fixed,MPIFitFunc);           
+            randsize[1] = total/2;
+            return bfreq*do_cal("mpi_allreduce",randsize,fixed,MPIFitFunc);           
         case MPI_CT_REDUCE:
+            randsize[1] = total/2;
             outs() << "mpi_reduce\n";
-            return do_cal("mpi_reduce",bfreq,randsize,fixed,MPIFitFunc);
+            return bfreq*do_cal("mpi_reduce",randsize,fixed,MPIFitFunc);
         case MPI_CT_BCAST:
             outs() << "mpi_ct_bcast\n";
-            return do_cal("mpi_bcast",bfreq,randsize,fixed,MPIFitFunc);
+            return bfreq*do_cal("mpi_bcast",randsize,fixed,MPIFitFunc);
         case MPI_CT_ALLTOALL:
             outs() << "mpi_ct_alltoall\n";
-            return do_cal("mpi_alltoall",bfreq,randsize,fixed,MPIFitFunc);
+            return bfreq*do_cal("mpi_alltoall",randsize,fixed,MPIFitFunc);
         default:
             outs() << "out of range\n";
             return -1;

@@ -185,7 +185,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             outs() << "call inst name##" << CI->getName() << "##\n";
             //0 means num of processes fixed, 1 means datasize fixed
             double timing = MT->newcount(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI),0); // IO 模型
-            double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
+            //double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
             
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
@@ -203,7 +203,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                       << BB->getName() << "\n";
 #endif
             MpiTiming += timing*1000.0;
-            MpiTimingsize += timingsize*1000.0;
+            //MpiTimingsize += timingsize*1000.0;
          }
       }
       if(isa<LibCallTiming>(S) && CallTiming < DBL_EPSILON){
@@ -227,7 +227,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    outs()<<"Inst Num: "<< AllIrNum << "\n";
    outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
    outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
-   outs()<<"MPI Timing1: "<< MpiTimingsize<<" ns\n";
+   //outs()<<"MPI Timing1: "<< MpiTimingsize<<" ns\n";
    return false;
 }
 
