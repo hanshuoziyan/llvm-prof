@@ -182,10 +182,9 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
             
-            outs() << "call inst name##" << CI->getName() << "##\n";
             //0 means num of processes fixed, 1 means datasize fixed
-            double timing = MT->newcount(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI),0); // IO 模型
-            //double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
+            double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI)); // IO 模型
+            double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
             
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
@@ -202,8 +201,8 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                       << "N:" << BB->getParent()->getName() << ":"
                       << BB->getName() << "\n";
 #endif
-            MpiTiming += timing*1000.0;
-            //MpiTimingsize += timingsize*1000.0;
+            MpiTiming += timing;
+            MpiTimingsize += timingsize*1000.0;
          }
       }
       if(isa<LibCallTiming>(S) && CallTiming < DBL_EPSILON){
@@ -219,15 +218,15 @@ bool ProfileTimingPrint::runOnModule(Module &M)
          }
       }
    }
-   AbsoluteTiming = BlockTiming + MpiTiming + CallTiming;
+   AbsoluteTiming = BlockTiming + MpiTimingsize/*MpiTiming */+ CallTiming;
    outs()<<"Block Timing: "<<BlockTiming<<" ns\n";
-   outs()<<"MPI Timing0: "<<MpiTiming<<" ns\n";
+   outs()<<"MPI Timing1: "<<MpiTimingsize<<" ns\n";
    outs()<<"Call Timing: "<<CallTiming<<" ns\n";
    outs()<<"Timing: "<<AbsoluteTiming<<" ns\n";
-   outs()<<"Inst Num: "<< AllIrNum << "\n";
-   outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
-   outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
-   //outs()<<"MPI Timing1: "<< MpiTimingsize<<" ns\n";
+   outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
+   //outs()<<"Inst Num: "<< AllIrNum << "\n";
+   //outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
+   //outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
    return false;
 }
 
