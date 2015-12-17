@@ -1,3 +1,46 @@
+/**
+ *
+ *How does TimingSource work?
+ *1. Initialization Stage
+ *
+ *      Check out TimingSource.cpp
+ *
+ *2. Parse -timing option and create corrending objects
+ *
+ *      Check out llvm-prof.cpp
+ *
+ *3. Calculate MPI time
+ *
+ *      At passes.cpp
+ *      if(isa<MPITiming>(S) && MpiTiming < DBL_EPSILON)//Only enter this if statement once
+ *      { 
+ *          auto MT = cast<MPITiming>(S);
+ *          auto S = PI.getAllTrapedValues(MPIFullInfo);//this S is not the same as the above S
+ *          ...
+ *          for(auto I : S)//for each MPI instruction I, get I's time
+ *          {
+ *              ...
+ *  ------------double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI));
+ *  |           ...
+ *  |           MpiTiming += timing;
+ *  |           }
+ *  |       }
+ *  |   }
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.cpp
+ *  --->LatencyTiming::count(const llvm::Instruction &I,double bfreq,double total)
+ *      {
+ *          //R is MPI_SIZE
+ *          first, determin the type of I(the variable C)-----------------------------------enum MPICategoryType
+ *          if I is p2p operation,        use bfreq*latency+total/bandwith                  {
+ *          if I is collective operation, use bfreq*latency+C*total*log2(R)/bandwith            MPI_CT_P2P     =0,
+ *          else                          use 2*R*(bfreq*latency+total/bandwith)                MPI_CT_REDUCE  =1,
+ *      }                                                                                       MPI_CT_REDUCE2 =2,
+ *                                                                                              MPI_CT_NSIDES  =3,
+ *                                                                                          }
+ */
 #include "passes.h"
 #include <ProfileInfo.h>
 #include <llvm/IR/Module.h>
@@ -80,6 +123,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
 {
    ProfileInfo& PI = getAnalysis<ProfileInfo>();
    double AbsoluteTiming = 0.0, BlockTiming = 0.0, MpiTiming = 0.0, CallTiming = 0.0;
+   double MpiTimingsize = 0.0;
    double AllIrNum = 0.0;//add by haomeng. The num of ir
    double MPICallNUM = 0.0;//add by haomeng. The num of mpi callinst
    double AmountOfMpiComm = 0.0;//add by haomeng. The amount of commucation of mpi
@@ -137,17 +181,20 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const CallInst* CI = cast<CallInst>(I);
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
+            
+            //0 means num of processes fixed, 1 means datasize fixed
             double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI)); // IO 模型
-
+            double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
+            
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
                auto LTR = cast<LatencyTiming>(MT);
                size_t BFreq = PI.getExecutionCount(BB);
                MPICallNUM += BFreq;
-               AmountOfMpiComm += LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
+               AmountOfMpiComm += 0;//LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
             }
 
-#ifndef NDEBUG
+#ifdef NDEBUG
             if(TimingDebug)
                outs() << "  " << PI.getTrapedIndex(I)
                       << "\tBB:" << PI.getExecutionCount(BB) << "\tT:" << timing
@@ -155,6 +202,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                       << BB->getName() << "\n";
 #endif
             MpiTiming += timing;
+            MpiTimingsize += timingsize*1000.0;
          }
       }
       if(isa<LibCallTiming>(S) && CallTiming < DBL_EPSILON){
@@ -170,14 +218,15 @@ bool ProfileTimingPrint::runOnModule(Module &M)
          }
       }
    }
-   AbsoluteTiming = BlockTiming + MpiTiming + CallTiming;
+   AbsoluteTiming = BlockTiming + MpiTimingsize/*MpiTiming */+ CallTiming;
    outs()<<"Block Timing: "<<BlockTiming<<" ns\n";
-   outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
+   outs()<<"MPI Timing1: "<<MpiTimingsize<<" ns\n";
    outs()<<"Call Timing: "<<CallTiming<<" ns\n";
    outs()<<"Timing: "<<AbsoluteTiming<<" ns\n";
-   outs()<<"Inst Num: "<< AllIrNum << "\n";
-   outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
-   outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
+   outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
+   //outs()<<"Inst Num: "<< AllIrNum << "\n";
+   //outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
+   //outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
    return false;
 }
 

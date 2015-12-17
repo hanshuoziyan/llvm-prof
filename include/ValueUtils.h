@@ -34,10 +34,13 @@ namespace lle{
    unsigned get_mpi_count_idx(const llvm::CallInst*);
 
    enum MPICategoryType {
-      MPI_CT_P2P      = 0, 
-      MPI_CT_REDUCE   = 1, // collect
-      MPI_CT_REDUCE2  = 2, // double collect
-      MPI_CT_NSIDES   = 3  // n times communicate
+      MPI_CT_P2P       = 0,
+      MPI_CT_REDUCE    = 1,
+      MPI_CT_REDUCE2   = 2,
+      MPI_CT_NSIDES    = 3,
+      MPI_CT_ALLREDUCE = 4,
+      MPI_CT_BCAST     = 5,
+      MPI_CT_ALLTOALL  = 6  
    };
    /**
     * return mpi collection category

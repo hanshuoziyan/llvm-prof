@@ -1,3 +1,68 @@
+/**
+ *The realtionship of Timng classes
+ *                     
+ *                     BBlockTiming--------LmbenchTiming
+ *                    /            \
+ *                   /              \
+ *                  /                \-----IrinstTiming------IrinstMaxTiming
+ *                 /
+ *                /
+ * TimgingSource  -----MPITiming-----------MPBenchReTiming---MPBenchTiming
+ *                \             \
+ *                 \             \
+ *                  \             \--------LatencyTiming
+ *                   \
+ *                    \
+ *                     LibCallTiming-------LibFnTiming
+ *
+ *
+ *How does TimingSource work?
+ *
+ *1. Initialization Stage
+ *Initializ some TimingSource classes with specific type.
+ *      
+ *      At the end of TimingSource.cpp.
+ *  ----TimingSource::Register<LmbenchTiming>(...);
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.h, class TimingSource
+ *  --->Register(...)
+ *      {
+ *          template<class T>
+ *  --------TimingSource::Register_(...,[](){return new T;});
+ *  |       ...
+ *  |   }
+ *  |
+ *  |
+ *  |
+ *  |   At TimingSource.cpp
+ *  --->TimingSource::Register_(...,std::function<TimingSource*()>&& func)
+ *      {
+ *          TimingSourceInfoEntry entry;-------------------------------->struct TimingSourceInfoEntry
+ *          ...                                                          {
+ *                                                                          ...
+ *          //func is used to create an object of type T                    std::function<TimingSource*()> Creator;
+ *          entry.Creator = func;                                        }
+ *
+ *
+ *          TSIEntries.push_back(std::move(entry));--------------------->vector<TimingSourceInfoEntry> TSIEntries;
+ *      }
+ *
+ *At the end of Initialization stage, there will a corrending TimingSourceInfoEntry object
+ *for each type of TimingSource, and the object will be stored in TSIEntries.
+ *Notice that at the Initialization stage, there is no TimingSource or any other child classes'
+ *object are created, only the TimingSourceInfoEntry objects are created.
+ *
+ *
+ *2. Parse -timing option and create corrending TimingSource objects.
+ *      
+ *      Check out llvm-prof.cpp
+ *
+ *3. Calculate MPI time
+ *
+ *      Check out passes.cpp
+ */
 #include "TimingSource.h"
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/CommandLine.h>
@@ -13,6 +78,10 @@
 #include <stdio.h>
 #include <float.h>
 #include <functional>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <map>
 
 #include "FreeExpression.h"
 #include "ValueUtils.h"
@@ -75,6 +144,85 @@ static void load_and_init_with_map(const char* file, double* cpu_times, MapT& M)
       }
    }
    fclose(f);
+}
+
+static void load_and_init_with_func(const char* file, std::map<std::string,FitFormula>& mpifitfunc)
+{
+    std::string funcname;
+    unsigned long range;
+    char ctemp, linebuf[500];
+    FitFormula funcformula;
+    double num, constant, firstorder, logcoff;
+    std::map<std::string,FitFormula>::iterator it;
+    std::ifstream ifs(file,std::ifstream::in);
+
+    if(!ifs.is_open())
+    {
+        errs() << "Can not open file " << file << "\n";
+        exit(-1);
+    }
+    
+    while(ifs.good())
+    {
+        std::istringstream iss;
+        ifs.getline(linebuf,500);
+        iss.str(linebuf);
+        iss >> funcname;
+        
+        range = 0;
+        constant = firstorder = logcoff = 0.0;
+        iss >> num;
+
+        while(iss >> ctemp)
+        {
+            if(ctemp=='+' || ctemp=='-')
+            {
+                iss.putback(ctemp);
+                constant = num;
+                iss >> num;
+            }
+            else if(ctemp=='x')
+            {
+                firstorder = num;
+                iss >> ctemp;
+                iss.putback(ctemp);
+                if(ctemp=='+' || ctemp=='-') iss >> num;
+            }
+            else if(ctemp=='L')
+            {
+                logcoff = num;
+                range = 1000;
+                break;
+            }
+            else if(ctemp==',')
+            {
+                iss >> range >> ctemp >> ctemp
+                    >> ctemp >> ctemp >> range;
+                break;
+            }
+            else
+            {
+                errs() << "something wrong in the formula\n";
+                exit(-1);
+            }
+        }
+        
+        if((it=mpifitfunc.find(funcname))==mpifitfunc.end())
+        {
+            funcformula.firstorder.push_back(firstorder);
+            funcformula.constant.push_back(constant);
+            funcformula.logcoffent.push_back(logcoff);
+            funcformula.range.push_back(range);
+            mpifitfunc.insert(std::pair<std::string,FitFormula>(funcname,funcformula));
+        }
+        else
+        {
+            it->second.firstorder.push_back(firstorder);
+            it->second.constant.push_back(constant);
+            it->second.logcoffent.push_back(logcoff);
+            it->second.range.push_back(range);
+        }
+    }
 }
 
 void TimingSource::Register_(const char* name, const char* desc, std::function<TimingSource*()>&& func)
@@ -457,6 +605,12 @@ void MPBenchReTiming::init_with_file(const char* file)
    }
 }
 
+double MPBenchReTiming::newcount(const llvm::Instruction &I, double bfreq,
+                                double total, int fixed) const
+{
+    return -1.0;
+}
+
 double MPBenchReTiming::count(const llvm::Instruction& I, double bfreq,
                                double total) const
 {
@@ -566,11 +720,23 @@ LatencyTiming::LatencyTiming()
       {"mpi_latency", MPI_LATENCY},
       {"mpi_bandwidth", MPI_BANDWIDTH}
    };
-   file_initializer = [](const char* file, double* param){
-      load_and_init_with_map(file, param, MPIMap);
+/*   file_initializer = [](const char* file, double* param){
+      load_and_init_with_func(file, MPIFitFunc);
    };
+*/ 
+    file_initializer = load_files;
 }
 
+std::map<std::string,FitFormula> LatencyTiming::MPIFitFunc = []
+{
+    std::map<std::string,FitFormula> ret;
+    return ret;
+}();
+
+void LatencyTiming::load_files(const char* file, double* param)
+{
+    load_and_init_with_func(file,MPIFitFunc);
+}
 double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, double total) const
 {
    using namespace lle;
@@ -601,25 +767,90 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 
 }
 
+double do_cal(const char* name, double randsize[], int fixed, 
+              std::map<std::string,FitFormula>& mpifitfunc)
+{
+    std::ostringstream outstring;
+    std::map<std::string,FitFormula>::iterator it;
+
+    outstring << name << fixed << randsize[fixed];
+    if((it=mpifitfunc.find(outstring.str()))!=mpifitfunc.end())
+    {
+        for(int i=0;i<it->second.range.size();i++)
+            if(randsize[1-fixed]<it->second.range[i]+1)
+                return it->second.constant[i]+it->second.firstorder[i]*randsize[1-fixed]+
+                       it->second.logcoffent[i]*log2(randsize[1-fixed]);
+        outs() << "size=" << randsize[1] << " is too big\n";
+    }
+    else
+    {
+        outs() << "can not find " << outstring.str() << "##\n";
+        return -1.0;
+    }
+}
+
 double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total) const
 {
+    using namespace lle;
+    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
+    const CallInst* CI = dyn_cast<CallInst>(&I);
+    if(CI==NULL) return 0.;
+    //double latency = get(MPI_LATENCY), bandwidth = get(MPI_BANDWIDTH);
+    double latency = 652312, bandwidth = 307.906;
+    MPICategoryType C = MPI_CT_P2P;
+    try{
+       C = lle::get_mpi_collection(CI);
+    }catch(const std::out_of_range& e){
+        return 0.;
+    }
+    if(C==MPI_CT_P2P){
+        return bfreq * latency + total / bandwidth;
+    }else if(C <= MPI_CT_REDUCE2)
+        return bfreq * latency + C * total * log2(R) / bandwidth;
+    else
+        return 2 * R * (bfreq * latency + total / bandwidth);
+}
+
+double LatencyTiming::newcount(const llvm::Instruction &I, double bfreq, double total, int fixed) const
+{
    using namespace lle;
+   double randsize[2] = {R*1.0,total/bfreq};
+    int temp;
    if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
    const CallInst* CI = dyn_cast<CallInst>(&I);
    if(CI == NULL) return 0.;
-   double latency = get(MPI_LATENCY), bandwidth = get(MPI_BANDWIDTH);
    MPICategoryType C = MPI_CT_P2P;
+
    try{
       C = lle::get_mpi_collection(CI);
    }catch(const std::out_of_range& e){
       return 0;
    }
-   if (C == MPI_CT_P2P) {
-      return bfreq * latency + total / bandwidth;
-   } else if (C <= MPI_CT_REDUCE2)
-      return bfreq * latency + C * total * log2(R) / bandwidth;
-   else
-      return 2 * R * (bfreq * latency + total / bandwidth);
+    switch(C)
+    {
+        case MPI_CT_P2P:
+            randsize[0] = 2;
+            return bfreq*do_cal("mpi_send",randsize,0,MPIFitFunc);
+        case MPI_CT_ALLREDUCE:
+            randsize[1] = total/2;
+            temp = total/2;
+            if(temp==8) randsize[1] = 4;
+            else if(temp==80) randsize[1] = 20;
+            return bfreq*do_cal("mpi_allreduce",randsize,fixed,MPIFitFunc);           
+        case MPI_CT_REDUCE:
+            randsize[1] = total/2;
+            return bfreq*do_cal("mpi_reduce",randsize,fixed,MPIFitFunc);
+        case MPI_CT_BCAST:
+            temp = total;
+            if(temp==8) randsize[1] = 4;
+            else if(temp==40) randsize[1] = 32;
+            return bfreq*do_cal("mpi_bcast",randsize,fixed,MPIFitFunc);
+        case MPI_CT_ALLTOALL:
+            return bfreq*do_cal("mpi_alltoall",randsize,fixed,MPIFitFunc);
+        default:
+            outs() << "out of range in TimingSource.cpp\n";
+            return -1;
+    }
 }
 
 const char* LmbenchTiming::Name = TimingSource::Register<LmbenchTiming>(
