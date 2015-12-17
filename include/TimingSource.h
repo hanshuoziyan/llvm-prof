@@ -4,12 +4,14 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/Support/raw_ostream.h>
 
 class FreeExpression;
 
 /* a timing source is used to count inst types in a basicblock */
 namespace llvm{
 struct TimingSourceInfoEntry;
+struct FitFormula;
 class TimingSource{
    public:
    static TimingSource* Construct(const llvm::StringRef Name);
@@ -92,6 +94,8 @@ class MPITiming: public TimingSource
    }
    virtual double count(const llvm::Instruction& I, double bfreq,
                         double count) const = 0; // io part
+   virtual double newcount(const llvm::Instruction& I, double bfreq,
+                        double count, int fixed) const = 0;
    protected:
    MPITiming(Kind K, size_t N);
    unsigned R;
@@ -113,6 +117,15 @@ struct TimingSourceInfoEntry {
    StringRef Name;
    StringRef Desc;
    std::function<TimingSource*()> Creator;
+};
+
+//now, the formula is a+bx+clog[x]
+struct FitFormula
+{
+    std::vector<double> constant;   //constant term, a
+    std::vector<double> firstorder; // first order term, b
+    std::vector<double> logcoffent; // c
+    std::vector<unsigned long> range; 
 };
 
 namespace _timing_source{
@@ -213,6 +226,8 @@ class MPBenchReTiming : public MPITiming
 
    double count(const llvm::Instruction &I, double bfreq,
                 double count) const override;
+    double newcount(const llvm::Instruction &I, double bfreq,
+                double count, int fixed) const override;
    void print(llvm::raw_ostream&) const override;
    protected: 
    FreeExpression* bandwidth;
@@ -240,14 +255,18 @@ class LatencyTiming : public MPITiming, public _timing_source::T<MPISpec>
    public:
    typedef MPISpec EnumTy;
    static const char* Name;
+   static std::map<std::string, FitFormula> MPIFitFunc; 
    static bool classof(const TimingSource* S) {
       return S->getKind() == Kind::Latency;
    }
-
+   static void load_files(const char*, double *);
    LatencyTiming();
 
+    //0 means process num is fixed, 1 means datasize is fixed
    double count(const llvm::Instruction& I, double bfreq,
                 double count) const override;
+   double newcount(const llvm::Instruction& I, double breq,
+                double count, int fixed) const override;
    double Comm_amount(const llvm::Instruction& I, double bfreq, double total) const;
 };
 

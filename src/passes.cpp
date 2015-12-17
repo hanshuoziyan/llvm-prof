@@ -25,6 +25,7 @@
  *  |           MpiTiming += timing;
  *  |           }
  *  |       }
+ *  |   }
  *  |
  *  |
  *  |
@@ -122,6 +123,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
 {
    ProfileInfo& PI = getAnalysis<ProfileInfo>();
    double AbsoluteTiming = 0.0, BlockTiming = 0.0, MpiTiming = 0.0, CallTiming = 0.0;
+   double MpiTimingsize = 0.0;
    double AllIrNum = 0.0;//add by haomeng. The num of ir
    double MPICallNUM = 0.0;//add by haomeng. The num of mpi callinst
    double AmountOfMpiComm = 0.0;//add by haomeng. The amount of commucation of mpi
@@ -179,17 +181,20 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const CallInst* CI = cast<CallInst>(I);
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
+            
+            //0 means num of processes fixed, 1 means datasize fixed
             double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI)); // IO 模型
-
+            double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
+            
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
                auto LTR = cast<LatencyTiming>(MT);
                size_t BFreq = PI.getExecutionCount(BB);
                MPICallNUM += BFreq;
-               AmountOfMpiComm += LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
+               AmountOfMpiComm += 0;//LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
             }
 
-#ifndef NDEBUG
+#ifdef NDEBUG
             if(TimingDebug)
                outs() << "  " << PI.getTrapedIndex(I)
                       << "\tBB:" << PI.getExecutionCount(BB) << "\tT:" << timing
@@ -197,6 +202,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                       << BB->getName() << "\n";
 #endif
             MpiTiming += timing;
+            MpiTimingsize += timingsize*1000.0;
          }
       }
       if(isa<LibCallTiming>(S) && CallTiming < DBL_EPSILON){
@@ -212,14 +218,15 @@ bool ProfileTimingPrint::runOnModule(Module &M)
          }
       }
    }
-   AbsoluteTiming = BlockTiming + MpiTiming + CallTiming;
+   AbsoluteTiming = BlockTiming + MpiTimingsize/*MpiTiming */+ CallTiming;
    outs()<<"Block Timing: "<<BlockTiming<<" ns\n";
-   outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
+   outs()<<"MPI Timing1: "<<MpiTimingsize<<" ns\n";
    outs()<<"Call Timing: "<<CallTiming<<" ns\n";
    outs()<<"Timing: "<<AbsoluteTiming<<" ns\n";
-   outs()<<"Inst Num: "<< AllIrNum << "\n";
-   outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
-   outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
+   outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
+   //outs()<<"Inst Num: "<< AllIrNum << "\n";
+   //outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
+   //outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
    return false;
 }
 

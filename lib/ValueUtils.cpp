@@ -5,6 +5,7 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include <unordered_map>
 
@@ -75,17 +76,16 @@ GlobalVariable* lle::access_global_variable(Instruction *I)
  * DataType: name->{categroy, count param idx}
  */
 static 
-std::map<StringRef, 
-   std::pair<MPICategoryType, unsigned char> > 
+std::map<StringRef, std::pair<MPICategoryType,unsigned char>> 
    MpiSpec = {
-   {"mpi_allreduce_" , {MPI_CT_REDUCE2 , 2}} ,
-   {"mpi_reduce_"    , {MPI_CT_REDUCE  , 2}} ,
-   {"mpi_send_"      , {MPI_CT_P2P     , 1}} ,
-   {"mpi_recv_"      , {MPI_CT_P2P     , 1}} ,
-   {"mpi_isend_"     , {MPI_CT_P2P     , 1}} ,
-   {"mpi_irecv_"     , {MPI_CT_P2P     , 1}} ,
-   {"mpi_bcast_"     , {MPI_CT_REDUCE  , 1}} ,
-   {"mpi_alltoall_"  , {MPI_CT_NSIDES  , 1}}
+   {"mpi_allreduce_" , {MPI_CT_ALLREDUCE, 2}} ,
+   {"mpi_reduce_"    , {MPI_CT_REDUCE   , 2}} ,
+   {"mpi_send_"      , {MPI_CT_P2P      , 1}} ,
+   {"mpi_recv_"      , {MPI_CT_P2P      , 1}} ,
+   {"mpi_isend_"     , {MPI_CT_P2P      , 1}} ,
+   {"mpi_irecv_"     , {MPI_CT_P2P      , 1}} ,
+   {"mpi_bcast_"     , {MPI_CT_BCAST    , 1}} ,
+   {"mpi_alltoall_"  , {MPI_CT_ALLTOALL , 1}} 
 };
 
 unsigned lle::get_mpi_count_idx(const llvm::CallInst* CI)
