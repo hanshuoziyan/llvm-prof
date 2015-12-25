@@ -21,11 +21,12 @@ set(SOURCES
   MPIProfiling.cpp
   PredBlockProfiling.cpp
   PredBlockDoubleProfiling.cpp
+  TimeProfiling.cpp
   datatype.h
   InstTemplate.cpp
   FreeExpression.cpp
   )
-#some platform need disable rtti to void 
+#some platform need disable rtti to void
 #undefined reference `typeinfo for xxx`
 add_definitions(-Wall -fno-rtti -std=c++11)
 set(SELF ${CMAKE_CURRENT_SOURCE_DIR})
@@ -36,7 +37,7 @@ include_directories(
 	)
 link_directories(${LLVM_LIBRARY_DIRS})
 
-add_custom_command(OUTPUT datatype.h 
+add_custom_command(OUTPUT datatype.h
    COMMAND ${MPIF90} ${SELF}/data.f -o datatype
    COMMAND ./datatype > datatype.h
    DEPENDS ${SELF}/data.f

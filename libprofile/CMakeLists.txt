@@ -8,10 +8,11 @@ set(SOURCES
   MPIProfiling.c
   PredBlockProfiling.c
   PredBlockDoubleProfiling.c
+  TimeProfiling.c
   )
 
 include_directories(
-  ../include 
+  ../include
   ${CMAKE_CURRENT_BINARY_DIR}/../lib
   ${LLVM_INCLUDE_DIRS}
   )

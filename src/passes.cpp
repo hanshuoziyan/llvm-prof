@@ -191,7 +191,7 @@ bool ProfileTimingPrint::runOnModule(Module &M)
                auto LTR = cast<LatencyTiming>(MT);
                size_t BFreq = PI.getExecutionCount(BB);
                MPICallNUM += BFreq;
-               AmountOfMpiComm += 0;//LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
+               AmountOfMpiComm += PI.getExecutionCount(CI);//LTR->Comm_amount(*I,BFreq,PI.getExecutionCount(CI));
             }
 
 #ifdef NDEBUG
@@ -224,9 +224,9 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    outs()<<"Call Timing: "<<CallTiming<<" ns\n";
    outs()<<"Timing: "<<AbsoluteTiming<<" ns\n";
    outs()<<"MPI Timing: "<<MpiTiming<<" ns\n";
-   //outs()<<"Inst Num: "<< AllIrNum << "\n";
-   //outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
-   //outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
+   outs()<<"Inst Num: "<< AllIrNum << "\n";
+   outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
+   outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
    return false;
 }
 
