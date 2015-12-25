@@ -26,9 +26,25 @@ char TimeProfiler::ID = 0;
 static RegisterPass<TimeProfiler> X("insert-time-profiling",
       "insert profiling for the time of mpi communication", false, false);
 
-static void IncrementTimeCounter(Value* Inc, Value* calle, unsigned Index, GlobalVariable* Counters, IRBuilder<>& Builder)
+//Get the next instruction after Point
+static Value* getNextIns(Value* Point)
+{
+   BasicBlock* pb = dyn_cast<Instruction>(Point)->getParent();
+   for (BasicBlock::iterator i = pb->begin(), e = pb->end(); i != e; ++i)
+   {
+      if((&*i) == Point)
+      {
+          BasicBlock::iterator ii = ++i;
+         return &*ii;
+      }
+   }
+}
+static void IncrementTimeCounter(Value* Inc, Value* calle, unsigned Index, GlobalVariable* Counters, IRBuilder<>& Builder, Value* Point)
 {
    LLVMContext &Context = Inc->getContext();
+   //In order to insert instruction after Point, we use the nextIns function.
+   Value* nextIns = getNextIns(Point);
+   Builder.SetInsertPoint(dyn_cast<Instruction>(nextIns));
 
    // Create the getelementptr constant expression
    std::vector<Constant*> Indices(2);
@@ -38,8 +54,9 @@ static void IncrementTimeCounter(Value* Inc, Value* calle, unsigned Index, Globa
       ConstantExpr::getGetElementPtr(Counters, Indices);
 
    // Load, increment and store the value back.
+   // Use this formula: a = a + end_time - start_time
    ArrayRef<Value*> args;
-   CallInst* Inc_end = Builder.CreateCall(DoubleTy, wtime);
+   CallInst* Inc_end = Builder.CreateCall(calle, args, "");
    Value* OldVal = Builder.CreateLoad(ElementPtr, "OldTimeCounter");
    Value* TmpVal = Builder.CreateFSub(OldVal, Inc, "TmpTimeCounter");
    Value* NewVal = Builder.CreateFAdd(TmpVal, Inc_end, "NewTimeCounter");
@@ -58,16 +75,19 @@ bool TimeProfiler::runOnModule(llvm::Module &M)
   std::vector<CallInst*> Traped;
   Function* wtime = NULL;
   for(auto F = M.begin(), E = M.end(); F!=E; ++F){
-     if(F.getName() == "mpi_wtime_")
+     if((*F).getName() == "mpi_wtime_")
         wtime = &*F;
      for(auto I = inst_begin(*F), IE = inst_end(*F); I!=IE; ++I){
         CallInst* CI = dyn_cast<CallInst>(&*I);
         if(CI == NULL) continue;
-        Function* func = CI->getCalledFunction();
+        Value* CV = const_cast<CallInst*>(CI)->getCalledValue();
+        Function* func = dyn_cast<Function>(castoff(CV));
+        if(func == NULL)
+          errs()<<"No func!\n";
         StringRef str = func->getName();
-        if(str.find_first_of("mpi_"))
+        if(str.startswith("mpi_"))
         {
-           if(str.find_first_of("mpi_init_")||str.find_first_of("mpi_comm_rank_")||str.find_first_of("mpi_comm_size_"))
+           if(str.startswith("mpi_init_")||str.startswith("mpi_comm_rank_")||str.startswith("mpi_comm_size_"))
               continue;
            errs()<< str<<"\n";
            Traped.push_back(CI);
@@ -76,7 +96,7 @@ bool TimeProfiler::runOnModule(llvm::Module &M)
   }
 
   IRBuilder<> Builder(M.getContext());
-  Type* I32Ty = Type::getInt32Ty(M.getContext());
+
   Type* DoubleTy = Type::getDoubleTy(M.getContext());
 
   Type*ATy = ArrayType::get(DoubleTy, Traped.size());
@@ -87,10 +107,9 @@ bool TimeProfiler::runOnModule(llvm::Module &M)
   unsigned I=0;
   for(auto P : Traped){
      ArrayRef<Value*> args;
-     CallInst* callTime = CallInst::Create(DoubleTy, wtime, args, "", P);
-     Builder.SetInsertPoint(P);
+     CallInst* callTime = CallInst::Create(wtime, args, "", P);
 
-     IncrementTimeCounter(callTime, wtime, I++, Counters, Builder);
+     IncrementTimeCounter(callTime, wtime, I++, Counters, Builder, P);
   }
 
   InsertPredProfilingInitCall(Main, "llvm_start_time_profiling", Counters);
