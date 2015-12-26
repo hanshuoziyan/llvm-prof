@@ -13,7 +13,7 @@
  *
  *      At passes.cpp
  *      if(isa<MPITiming>(S) && MpiTiming < DBL_EPSILON)//Only enter this if statement once
- *      { 
+ *      {
  *          auto MT = cast<MPITiming>(S);
  *          auto S = PI.getAllTrapedValues(MPIFullInfo);//this S is not the same as the above S
  *          ...
@@ -181,11 +181,11 @@ bool ProfileTimingPrint::runOnModule(Module &M)
             const CallInst* CI = cast<CallInst>(I);
             const BasicBlock* BB = CI->getParent();
             if(Ignore.count(BB->getParent()->getName())) continue;
-            
+
             //0 means num of processes fixed, 1 means datasize fixed
             double timing = MT->count(*I, PI.getExecutionCount(BB), PI.getExecutionCount(CI)); // IO 模型
             double timingsize = MT->newcount(*I,PI.getExecutionCount(BB),PI.getExecutionCount(CI),1);
-            
+
             if(isa<LatencyTiming>(MT))//add by haomeng.
             {
                auto LTR = cast<LatencyTiming>(MT);

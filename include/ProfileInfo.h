@@ -67,9 +67,10 @@ namespace llvm {
        enum ProfilingFlags flags;
        std::vector<int> Contents;
     };
-    typedef std::pair<unsigned, const Instruction*> 
+    typedef std::pair<unsigned, const Instruction*>
        SLGCounts;
     typedef std::pair<unsigned, unsigned> MPICounts; // index, count
+    typedef std::pair<unsigned, double> TimeCounts; // index, time
 
   protected:
     // EdgeInformation - Count the number of times a transition between two
@@ -90,6 +91,8 @@ namespace llvm {
 
     // MPICounts = count
     std::map<const CallInst*, MPICounts> MPInformation; // old mpi profiling format
+
+    std::map<const CallInst*, TimeCounts> MPITimeinformation; // mpi time profiling format
 
     // MPICounts = count * size(fortran_type)
     std::map<const CallInst*, MPICounts> MPIFullInformation; // new mpi profiling format
@@ -240,7 +243,7 @@ namespace llvm {
              FI != FE; ++FI) {
           typename std::map<const FType*, EdgeWeights>::iterator ei = EdgeInformation.find(*FI);
           dbgs() << "Edges for Function " << ei->first << ":\n";
-          for (typename EdgeWeights::iterator ewi = ei->second.begin(), ewe = ei->second.end(); 
+          for (typename EdgeWeights::iterator ewi = ei->second.begin(), ewe = ei->second.end();
                ewi != ewe; ++ewi) {
             dbgs() << ewi->first << ": " << format("%.20g",ewi->second) << "\n";
           }

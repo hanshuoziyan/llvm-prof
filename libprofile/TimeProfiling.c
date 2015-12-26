@@ -5,7 +5,7 @@ static double *ArrayStart;
 static uint64_t NumElements;
 
 static void TimeProfAtExitHandler(void) {
-  write_profiling_data_double(BlockInfoDouble, ArrayStart, NumElements);
+  write_profiling_data_double(TimeInfo, ArrayStart, NumElements);
 }
 
 int llvm_start_time_profiling(int argc, const char** argv,

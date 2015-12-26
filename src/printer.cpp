@@ -21,9 +21,9 @@ cl::opt<bool> PrintAnnotatedLLVM("annotated-llvm",
       cl::desc("Print LLVM code with frequency annotations"));
 cl::alias PrintAnnotated2("A", cl::desc("Alias for --annotated-llvm"),
       cl::aliasopt(PrintAnnotatedLLVM));
-cl::opt<bool> PrintAllCode("print-all-code", 
+cl::opt<bool> PrintAllCode("print-all-code",
       cl::desc("Print annotated code for the entire program"));
-cl::opt<bool> ValueContentPrint("value-content", 
+cl::opt<bool> ValueContentPrint("value-content",
       cl::desc("Print detailed value content in value profiling"));
 
 // PairSecondSort - A sorting predicate to sort by the second element of a pair.
@@ -50,7 +50,7 @@ void ProfileInfoPrinterPass::getAnalysisUsage(AnalysisUsage& AU) const
    AU.addRequired<ProfileInfo>();
 }
 
-void ProfileInfoPrinterPass::printValueContent() 
+void ProfileInfoPrinterPass::printValueContent()
 {
 	ProfileInfo &PI = getAnalysis<ProfileInfo>();
 	std::vector<const Instruction*> Calls = PI.getAllTrapedValues(ValueInfo);
@@ -94,7 +94,7 @@ void ProfileInfoPrinterPass::printExecutionCommands()
 	}
 }
 
-void ProfileInfoPrinterPass::printFunctionCounts( 
+void ProfileInfoPrinterPass::printFunctionCounts(
 		std::vector<std::pair<Function*, double> >& FunctionCounts)
 {
 	// Sort by the frequency, backwards.
@@ -115,7 +115,7 @@ void ProfileInfoPrinterPass::printFunctionCounts(
 	outs() << " ##   Frequency\n";
 	for (unsigned i = 0, e = FunctionCounts.size(); i != e; ++i) {
 		if (!Unsort && FunctionCounts[i].second == 0) {
-			outs() << "\n  NOTE: " << e-i << " function" 
+			outs() << "\n  NOTE: " << e-i << " function"
 				<< (e-i-1 ? "s were" : " was") << " never executed!\n";
 			break;
 		}
@@ -127,7 +127,7 @@ void ProfileInfoPrinterPass::printFunctionCounts(
 	}
 }
 
-std::set<Function*> 
+std::set<Function*>
 ProfileInfoPrinterPass::printBasicBlockCounts(
 		std::vector<std::pair<BasicBlock *, double> > &Counts)
 {
@@ -257,12 +257,35 @@ void ProfileInfoPrinterPass::printMPICounts(ProfilingType Info)
       const CallInst* CI = cast<CallInst>(trapes[i]);
       const BasicBlock* BB = CI->getParent();
       const Function* F = BB->getParent();
-      outs() << format("%3d", i+1) << ". " 
-         << format("%5.0f", PI.getExecutionCount(CI)) <<"\t" 
+      outs() << format("%3d", i+1) << ". "
+         << format("%5.0f", PI.getExecutionCount(CI)) <<"\t"
          << *PI.getTrapedTarget(CI) <<"\t"
          << F->getName() <<":\""
          << BB->getName() <<"\"\t\n";
    }
+}
+
+//printMPITime - print the mpi time
+void ProfileInfoPrinterPass::printMPITime(ProfilingType Info)
+{
+  ProfileInfo& PI = getAnalysis<ProfileInfo>();
+  auto trapes = PI.getAllTrapedValues(Info);
+  if(trapes.empty()) return;
+
+  outs() << "\n===" << std::string(73, '-') << "===\n";
+  outs() << "mpi time profiling information:\n\n";
+  outs() <<" ##      Count\t\tWhat\t\tWhere\n";
+
+  for(unsigned i=0;i<trapes.size(); i++){
+     const CallInst* CI = cast<CallInst>(trapes[i]);
+     const BasicBlock* BB = CI->getParent();
+     const Function* F = BB->getParent();
+     outs() << format("%3d", i+1) << ". "
+        << format("%5.0f", PI.getExecutionCount(CI)) <<"\t"
+        << *PI.getTrapedTarget(CI) <<"\t"
+        << F->getName() <<":\""
+        << BB->getName() <<"\"\t\n";
+  }
 }
 
 namespace {
@@ -351,23 +374,23 @@ bool ProfileInfoPrinterPass::runOnModule(Module &M) {
 		if (FI->isDeclaration()) continue;
 		double w = ignoreMissing(PI.getExecutionCount(FI));
 		FunctionCounts.push_back(std::make_pair(FI, w));
-		for (Function::iterator BB = FI->begin(), BBE = FI->end(); 
+		for (Function::iterator BB = FI->begin(), BBE = FI->end();
 				BB != BBE; ++BB) {
 			double w = ignoreMissing(PI.getExecutionCount(BB));
 			Counts.push_back(std::make_pair(BB, w));
 		}
 	}
-
    // disable print execution commands, beacuse it is buggy.
 	//printExecutionCommands();
 	// Emit the most frequent function table...
 	printFunctionCounts(FunctionCounts);
 	FunctionToPrint = printBasicBlockCounts(Counts);
 	printValueCounts();
-   printSLGCounts();
-   printMPICounts(MPInfo);
-   printMPICounts(MPIFullInfo);
+  printSLGCounts();
+  printMPICounts(MPInfo);
+  printMPICounts(MPIFullInfo);
 	printAnnotatedCode(FunctionToPrint,M);
+  printMPITime(TimeInfo);
 
 	return false;
 }
