@@ -89,7 +89,6 @@ bool TimeProfiler::runOnModule(llvm::Module &M)
         {
            if(str.startswith("mpi_init_")||str.startswith("mpi_comm_rank_")||str.startswith("mpi_comm_size_"))
               continue;
-           errs()<< str<<"\n";
            Traped.push_back(CI);
         }
      }
