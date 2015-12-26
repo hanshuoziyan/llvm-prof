@@ -129,6 +129,8 @@ namespace llvm {
     double getExecutionCount(const BType *BB);
 
     double getExecutionCount(const CallInst* V);
+
+    double getMPITime(const CallInst* V);
     const std::vector<int>& getValueContents(const CallInst* V);
     /** return traped instructions.
      * if Instruction is CallInst it is ValueProfiling

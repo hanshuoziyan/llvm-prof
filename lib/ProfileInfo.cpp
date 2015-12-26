@@ -72,6 +72,11 @@ ProfileInfoT<Function,BasicBlock>::getExecutionCount(const CallInst* V) {
    if(L != MPIFullInformation.end()) return (double) L->second.second;
    auto K = MPInformation.find(V);
    if(K != MPInformation.end()) return (double) K->second.second;
+	return MissingValue;
+}
+
+template<> double
+ProfileInfoT<Function,BasicBlock>::getMPITime(const CallInst* V) {
    auto T = MPITimeInformation.find(V);
    if(T != MPITimeInformation.end()) return (double) T->second.second;
 	return MissingValue;
@@ -151,6 +156,19 @@ struct SortBasedIndex{
    }
 };
 
+struct SortBasedTime{
+   ProfileInfo& PI;
+   SortBasedTime(ProfileInfo& PI):PI(PI){}
+   int operator()(const Instruction* a, const Instruction* b)
+   {
+      const CallInst* aC = cast<CallInst>(a);
+      const CallInst* bC = cast<CallInst>(b);
+      if(aC != NULL && bC != NULL)
+          return PI.getMPITime(aC) > PI.getMPITime(bC);
+      return 0;
+   }
+};
+
 template<> std::vector<const Instruction*>
 ProfileInfoT<Function,BasicBlock>::getAllTrapedValues(ProfilingType PT) {
 	std::vector<const Instruction*> ret;
@@ -168,6 +186,8 @@ ProfileInfoT<Function,BasicBlock>::getAllTrapedValues(ProfilingType PT) {
    SELECT(MPITime);
   if(PT != MPITimeInfo)
 	   std::sort(ret.begin(), ret.end(), SortBasedIndex(*this));
+  else
+     std::sort(ret.begin(), ret.end(), SortBasedTime(*this));
 #undef SELECT
 	return ret;
 }

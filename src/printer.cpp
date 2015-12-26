@@ -288,7 +288,7 @@ void ProfileInfoPrinterPass::printMPITime(ProfilingType Info)
      StringRef str = func->getName();
 
      outs() << format("%3d", i+1) << ".\t"
-        << format("%5.10f", PI.getExecutionCount(CI)) <<"\t"
+        << format("%5.10f", PI.getMPITime(CI)) <<"\t"
         << str <<"\t"
         << F->getName() <<":\""
         << BB->getName() <<"\"\t\n";
