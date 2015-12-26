@@ -6,6 +6,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FormattedStream.h>
+#include "ValueUtils.h"
 
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR == 4
 #include <llvm/Assembly/AssemblyAnnotationWriter.h>
@@ -271,18 +272,24 @@ void ProfileInfoPrinterPass::printMPITime(ProfilingType Info)
   ProfileInfo& PI = getAnalysis<ProfileInfo>();
   auto trapes = PI.getAllTrapedValues(Info);
   if(trapes.empty()) return;
-
   outs() << "\n===" << std::string(73, '-') << "===\n";
   outs() << "mpi time profiling information:\n\n";
-  outs() <<" ##      Count\t\tWhat\t\tWhere\n";
+  outs() <<" ##  \tTime(sec)\tWhat\t\tWhere\n";
 
   for(unsigned i=0;i<trapes.size(); i++){
      const CallInst* CI = cast<CallInst>(trapes[i]);
      const BasicBlock* BB = CI->getParent();
      const Function* F = BB->getParent();
-     outs() << format("%3d", i+1) << ". "
-        << format("%5.0f", PI.getExecutionCount(CI)) <<"\t"
-        << *PI.getTrapedTarget(CI) <<"\t"
+
+     Value* CV = const_cast<CallInst*>(CI)->getCalledValue();
+     Function* func = dyn_cast<Function>(lle::castoff(CV));
+     if(func == NULL)
+       errs()<<"No func!\n";
+     StringRef str = func->getName();
+
+     outs() << format("%3d", i+1) << ".\t"
+        << format("%5.10f", PI.getExecutionCount(CI)) <<"\t"
+        << str <<"\t"
         << F->getName() <<":\""
         << BB->getName() <<"\"\t\n";
   }
@@ -390,7 +397,7 @@ bool ProfileInfoPrinterPass::runOnModule(Module &M) {
   printMPICounts(MPInfo);
   printMPICounts(MPIFullInfo);
 	printAnnotatedCode(FunctionToPrint,M);
-  printMPITime(TimeInfo);
+  printMPITime(MPITimeInfo);
 
 	return false;
 }

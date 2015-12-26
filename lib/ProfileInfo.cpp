@@ -72,8 +72,8 @@ ProfileInfoT<Function,BasicBlock>::getExecutionCount(const CallInst* V) {
    if(L != MPIFullInformation.end()) return (double) L->second.second;
    auto K = MPInformation.find(V);
    if(K != MPInformation.end()) return (double) K->second.second;
-   auto T = MPITimeinformation.find(V);
-   if(T != MPITimeinformation.end()) return (double) T->second.second;
+   auto T = MPITimeInformation.find(V);
+   if(T != MPITimeInformation.end()) return (double) T->second.second;
 	return MissingValue;
 }
 
@@ -165,8 +165,9 @@ ProfileInfoT<Function,BasicBlock>::getAllTrapedValues(ProfilingType PT) {
    SELECT(SLG);
    SELECT(MP);
    SELECT(MPIFull);
-
-	std::sort(ret.begin(), ret.end(), SortBasedIndex(*this));
+   SELECT(MPITime);
+  if(PT != MPITimeInfo)
+	   std::sort(ret.begin(), ret.end(), SortBasedIndex(*this));
 #undef SELECT
 	return ret;
 }

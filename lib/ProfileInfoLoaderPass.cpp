@@ -376,7 +376,7 @@ bool LoaderPass::runOnModule(Module &M) {
      }
   }
 
-  MPITimeinformation.clear();
+  MPITimeInformation.clear();
   std::vector<double> MPITimeCounters = PIL.getRawTimeMess();
   if(MPITimeCounters.size() > 0) {
      ReadCount = 0;
@@ -393,7 +393,7 @@ bool LoaderPass::runOnModule(Module &M) {
            {
               if(str.startswith("mpi_init_")||str.startswith("mpi_comm_rank_")||str.startswith("mpi_comm_size_"))
                  continue;
-              MPITimeinformation[CI] = std::make_pair(ReadCount, MPITimeCounters[ReadCount]);
+              MPITimeInformation[CI] = std::make_pair(ReadCount, MPITimeCounters[ReadCount]);
               ++ReadCount;
            }
         }

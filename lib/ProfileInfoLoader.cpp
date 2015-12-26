@@ -297,7 +297,7 @@ ProfileInfoLoader::ProfileInfoLoader(const char *ToolName,
       ReadProfilingBlockDouble(ToolName, F, ShouldByteSwap, BlockCounts);
       break;
    //add by haomeng
-   case TimeInfo:
+   case MPITimeInfo:
       ReadProfilingBlockDouble(ToolName, F, ShouldByteSwap, TimeMess);
       break;
 

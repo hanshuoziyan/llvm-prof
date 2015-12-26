@@ -92,7 +92,7 @@ namespace llvm {
     // MPICounts = count
     std::map<const CallInst*, MPICounts> MPInformation; // old mpi profiling format
 
-    std::map<const CallInst*, TimeCounts> MPITimeinformation; // mpi time profiling format
+    std::map<const CallInst*, TimeCounts> MPITimeInformation; // mpi time profiling format
 
     // MPICounts = count * size(fortran_type)
     std::map<const CallInst*, MPICounts> MPIFullInformation; // new mpi profiling format
