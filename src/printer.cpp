@@ -276,6 +276,8 @@ void ProfileInfoPrinterPass::printMPITime(ProfilingType Info)
   outs() << "mpi time profiling information:\n\n";
   outs() <<" ##  \tTime(sec)\tWhat\t\tWhere\n";
 
+  std::map<StringRef, double> timeMap;
+  double alltime = 0.0;
   for(unsigned i=0;i<trapes.size(); i++){
      const CallInst* CI = cast<CallInst>(trapes[i]);
      const BasicBlock* BB = CI->getParent();
@@ -287,11 +289,27 @@ void ProfileInfoPrinterPass::printMPITime(ProfilingType Info)
        errs()<<"No func!\n";
      StringRef str = func->getName();
 
+     if(timeMap.find(str) == timeMap.end())
+        timeMap[str] = PI.getMPITime(CI);
+     else
+        timeMap[str]=timeMap[str]+PI.getMPITime(CI);
+
+     alltime += PI.getMPITime(CI);
+
      outs() << format("%3d", i+1) << ".\t"
         << format("%5.10f", PI.getMPITime(CI)) <<"\t"
         << str <<"\t"
         << F->getName() <<":\""
         << BB->getName() <<"\"\t\n";
+  }
+  outs() << "=====================\n";
+  int tmpi = 0;
+  for(std::map<StringRef, double>::iterator it = timeMap.begin(); it != timeMap.end(); ++it){
+     
+     outs() << format("%3d", tmpi+1) << ".\t"
+        << format("%.2f%%", (it->second/alltime)*100) << "\t"
+        << format("%10.10f", (it->second*1000))<<"/"<<format("%f",(alltime*1000)) <<"\t"
+        << it->first <<"\n";
   }
 }
 

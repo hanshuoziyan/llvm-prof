@@ -48,6 +48,7 @@
 #include <fstream>
 #include <iterator>
 #include <float.h>
+#include "ValueUtils.h"
 
 using namespace llvm;
 
@@ -127,6 +128,8 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    double AllIrNum = 0.0;//add by haomeng. The num of ir
    double MPICallNUM = 0.0;//add by haomeng. The num of mpi callinst
    double AmountOfMpiComm = 0.0;//add by haomeng. The amount of commucation of mpi
+   double RealMpiTime = 0.0;//add by haomeng. The real time of mpi
+   double RealWaitTime = 0.0;//add by haomeng. The real wait time of mpi
    for(TimingSource* S : Sources){
       if (isa<BBlockTiming>(S)
           && BlockTiming < DBL_EPSILON) { // BlockTiming is Zero
@@ -177,6 +180,29 @@ bool ProfileTimingPrint::runOnModule(Module &M)
          auto U = PI.getAllTrapedValues(MPInfo);
          if(U.size()>0) outs()<<"Notice: Old Mpi Profiling Format\n";
          S.insert(S.end(), U.begin(), U.end());
+//add by haomeng. Calculate the real time of mpi
+         for(Module::iterator F = M.begin(), E = M.end(); F!= E; ++F){
+            for(Function::iterator BB = F->begin(), BE = F->end(); BB!= BE; ++BB){
+               for(BasicBlock::iterator I = BB->begin(), IE = BB->end(); I!= IE; ++I){
+                  CallInst* CI = dyn_cast<CallInst>(&*I);
+                  if(CI == NULL) continue;
+                  Value* CV = const_cast<CallInst*>(CI)->getCalledValue();
+                  Function* func = dyn_cast<Function>(lle::castoff(CV));
+                  if(func == NULL)
+                     errs()<<"No func!\n";
+                  StringRef str = func->getName();
+                  if(str.startswith("mpi_")){
+                     if(str.startswith("mpi_init_")||str.startswith("mpi_comm_rank_")||str.startswith("mpi_comm_size_"))
+                        continue;
+                    RealMpiTime += PI.getMPITime(CI);
+                    if(str.startswith("mpi_wait_")||str.startswith("mpi_barrier_")||str.startswith("mpi_waitall_"))
+                       RealWaitTime += PI.getMPITime(CI);
+                  }
+               }
+            }
+         }
+
+
          for(auto I : S){
             const CallInst* CI = cast<CallInst>(I);
             const BasicBlock* BB = CI->getParent();
@@ -227,6 +253,8 @@ bool ProfileTimingPrint::runOnModule(Module &M)
    outs()<<"Inst Num: "<< AllIrNum << "\n";
    outs()<<"Mpi Num: "<< MPICallNUM<< "\n";
    outs()<<"Comm Amount: "<< AmountOfMpiComm<< "\n";
+   outs()<<"Real MPI Timing: "<< RealMpiTime*pow(10,9) << " ns\n";
+   outs()<<"Real MPI Wait Timing: "<< RealWaitTime*pow(10,9) << " ns\n";
    return false;
 }
 
