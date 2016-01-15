@@ -146,6 +146,53 @@ static void load_and_init_with_map(const char* file, double* cpu_times, MapT& M)
    fclose(f);
 }
 
+//added by hanshuo
+
+static void splitStr(std::string& str, int& isLeaf, int& property, int& split, int& left, int& right, std::vector<double>& coefficient){
+   std::stringstream ss(str);
+   double tmp;
+   ss>>isLeaf;
+   if(!isLeaf){
+      //leaf node
+      while(ss>>tmp){
+         coefficient.push_back(tmp);
+      }
+   }else{
+      ss>>property;
+      ss>>split;
+      ss>>left;
+      ss>>right;
+   }
+}
+
+treeNode* LatencyTreeTiming::createTree(std::vector<std::string>& mem, int pos){
+   if(mem.size() <= pos || pos == -1)
+      return NULL;
+   treeNode* tmpNode = new treeNode();
+   splitStr(mem[pos], tmpNode->isLeaf, tmpNode->property, tmpNode->split, tmpNode->left, tmpNode->right, tmpNode->coefficient);
+   tmpNode->tleft = createTree(mem, tmpNode->left-1);
+   tmpNode->tright = createTree(mem, tmpNode->right-1);
+   return tmpNode;
+
+}
+
+void LatencyTreeTiming::printTree(treeNode* root){
+   if(root == NULL){
+      outs()<<"NULL\n";
+      return;
+   }
+   if(root->isLeaf){
+      outs()<<root->property;
+      outs()<<" \n";
+   }else{
+      for(int i = 0; i < root->coefficient.size(); i++){
+         outs()<<root->coefficient[i]<<" ";
+      }
+   }
+   printTree(root->tleft);
+   printTree(root->tright);
+}
+
 static void load_and_init_with_func(const char* file, std::map<std::string,FitFormula>& mpifitfunc)
 {
     std::string funcname;
@@ -605,6 +652,8 @@ void MPBenchReTiming::init_with_file(const char* file)
    }
 }
 
+
+
 double MPBenchReTiming::newcount(const llvm::Instruction &I, double bfreq,
                                 double total, int fixed) const
 {
@@ -726,6 +775,13 @@ LatencyTiming::LatencyTiming()
 */ 
     file_initializer = load_files;
 }
+//added by hanshuo
+LatencyTreeTiming::LatencyTreeTiming()
+   : MPITiming(Kind::Latency,MPINumSpec)
+     , T(params)
+{
+   file_initializer = load_files;
+}
 
 std::map<std::string,FitFormula> LatencyTiming::MPIFitFunc = []
 {
@@ -737,6 +793,30 @@ void LatencyTiming::load_files(const char* file, double* param)
 {
     load_and_init_with_func(file,MPIFitFunc);
 }
+
+//added by hanshuo
+
+std::map<std::string, treeNode*> LatencyTreeTiming::MPIFitFunc;//[std::string("allReduce")] = NULL;
+
+void LatencyTreeTiming::load_files(const char* file, double* param){
+   outs() << "init file in latency tree timing\n";
+   char* a[3] = {"allReduce","reduce","bcast"};
+   for(int i = 0; i < 3; i++){
+      std::vector<std::string> mem;
+      std::ifstream fs;
+      fs.open(a[i]);
+      char str[50];
+      while(fs.getline(str,50)){
+         std::string s;
+         s = str;
+         mem.push_back(s);
+      }
+      MPIFitFunc[a[i]] = createTree(mem,0);
+      //printTree(MPIFitFunc["allReduce"]);
+   }
+   
+}
+
 double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, double total) const
 {
    using namespace lle;
@@ -767,6 +847,36 @@ double LatencyTiming::Comm_amount(const llvm::Instruction &I,double bfreq, doubl
 
 }
 
+//added by hanshuo
+std::vector<double> getLeaf(double randsize[], treeNode* root){
+   std::vector<double> result;
+   if(root == NULL)
+      return result;
+   int isLeaf = root->isLeaf;
+   if(!isLeaf){
+      return root->coefficient;
+   }else{
+      if((root->property == 0 && randsize[0] > root->split) || (root->property == 1 && randsize[1] > root->split))
+         return getLeaf(randsize, root->tleft);
+      else
+         return getLeaf(randsize, root->tright);
+   }
+
+}
+
+double doTree_cal(char* pname,double randsize[],std::map<std::string, treeNode*>& mpifitfunc){
+   std::map<std::string, treeNode*>::iterator it;
+   std::string name = pname;
+   if((it = mpifitfunc.find(name)) != mpifitfunc.end()){
+      treeNode*& tmp = it->second;
+      std::vector<double> result = getLeaf(randsize,tmp);
+      return result[0]+result[1]*randsize[0]+result[2]*randsize[1];
+   }else{
+      outs() << "can not find " << name << "##\n";
+      return -1.0;
+   }
+} 
+
 double do_cal(const char* name, double randsize[], int fixed, 
               std::map<std::string,FitFormula>& mpifitfunc)
 {
@@ -787,6 +897,53 @@ double do_cal(const char* name, double randsize[], int fixed,
         outs() << "can not find " << outstring.str() << "##\n";
         return -1.0;
     }
+}
+
+//added by hanshuo
+double LatencyTreeTiming::count(const llvm::Instruction &I, double bfreq, double total) const
+{
+   outs() << "count latency tree timing\n";
+   return 0.0;
+}
+
+
+double LatencyTreeTiming::newcount(const llvm::Instruction &I, double bfreq, double total, int fixed) const
+{
+   outs() << "count latency tree timing\n";
+   using namespace lle;
+   double randsize[2] = {R*1.0,total/bfreq};
+    int temp;
+   if(total<DBL_EPSILON || bfreq < DBL_EPSILON) return 0.;
+   const CallInst* CI = dyn_cast<CallInst>(&I);
+   if(CI == NULL) return 0.;
+   MPICategoryType C = MPI_CT_P2P;
+
+   try{
+      C = lle::get_mpi_collection(CI);
+   }catch(const std::out_of_range& e){
+      return 0;
+   }
+    switch(C)
+    {
+        case MPI_CT_P2P:
+            randsize[0] = 2;
+            return bfreq*doTree_cal("mpi_send",randsize,MPIFitFunc);
+        case MPI_CT_ALLREDUCE:
+            randsize[1] = total/2;
+            return bfreq*doTree_cal("allReduce",randsize,MPIFitFunc);           
+        case MPI_CT_REDUCE:
+            randsize[1] = total/2;
+            return bfreq*doTree_cal("reduce",randsize,MPIFitFunc);
+        case MPI_CT_BCAST:
+            return bfreq*doTree_cal("bcast",randsize,MPIFitFunc);
+        case MPI_CT_ALLTOALL:
+            return bfreq*doTree_cal("mpi_alltoall",randsize,MPIFitFunc);
+        default:
+            outs() << "out of range in TimingSource.cpp\n";
+            return -1;
+    }
+
+   return 0.0;
 }
 
 double LatencyTiming::count(const llvm::Instruction &I, double bfreq, double total) const
@@ -867,3 +1024,6 @@ const char* LibFnTiming::Name = TimingSource::Register<LibFnTiming>(
     "libfn", "loading lib func call timing source");
 const char* LatencyTiming::Name = TimingSource::Register<LatencyTiming>(
     "latency", "load mpi latency timing source");
+//added by hanshuo
+const char* LatencyTreeTiming::Name = TimingSource::Register<LatencyTreeTiming>(
+      "latencyTree","load mpi latency timing source with tree");

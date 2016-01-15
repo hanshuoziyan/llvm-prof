@@ -5,7 +5,7 @@
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/Support/raw_ostream.h>
-
+#include <vector>
 class FreeExpression;
 
 /* a timing source is used to count inst types in a basicblock */
@@ -270,6 +270,57 @@ class LatencyTiming : public MPITiming, public _timing_source::T<MPISpec>
    double Comm_amount(const llvm::Instruction& I, double bfreq, double total) const;
 };
 
+//added by hanshuo
+typedef struct treeNode{
+   int isLeaf;//0-->leaf, 1-->other
+   int property;//0-->degree, 1-->data
+   int split;
+   int left = -1;
+   int right = -1;
+   std::vector<double> coefficient;
+   struct treeNode* tleft;
+   struct treeNode* tright;
+}treeNode;
+
+class LatencyTreeTiming : public MPITiming, public _timing_source::T<MPISpec>{
+   public:
+      typedef MPISpec EnumTy;
+            typedef std::map<std::string,treeNode*> ModelTy;
+      LatencyTreeTiming();
+      void deleteLatencyTreeTiming(){
+         for(ModelTy::iterator it = MPIFitFunc.begin(); it != MPIFitFunc.end(); it++){
+            deleteTree(it->second);
+         }
+      }
+      static const char* Name;
+      static void load_files(const char* , double*);
+      static std::map<std::string, treeNode*> MPIFitFunc;
+      static bool classof(const TimingSource* S){
+         return S->getKind() == Kind::Latency;
+      }
+      static treeNode* createTree(std::vector<std::string>& mem, int pos);
+      static void printTree(treeNode* root);
+      double count(const llvm::Instruction& I, double bfreq,
+            double count) const override;
+      double newcount(const llvm::Instruction& I, double breq,
+            double count, int fixed) const override;
+
+   private:
+      void deleteTree(treeNode* root){
+         if(root == NULL)
+            return;
+         if(!root->isLeaf){
+            delete root;
+            return;
+         }
+         deleteTree(root->tleft);
+         root->tleft = NULL;
+         deleteTree(root->tright);
+         root->tright = NULL;
+         delete root;
+         root = NULL;
+      }
+};
 enum LibFnSpec { SQRT, LOG, FABS, LibFnNumSpec };
 
 class LibFnTiming : public LibCallTiming, public _timing_source::T<LibFnSpec> 
