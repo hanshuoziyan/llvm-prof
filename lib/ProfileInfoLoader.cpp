@@ -58,9 +58,9 @@ static inline uint64_t ByteSwap(uint64_t Var, bool Really)
    if (!Really) return Var;
    return ((Var & (255UL <<  0U)) << 56U) |
           ((Var & (255UL <<  8U)) << 40U) |
-          ((Var & (255UL << 16U)) << 24U) | 
+          ((Var & (255UL << 16U)) << 24U) |
           ((Var & (255UL << 24U)) <<  8U) |
-          ((Var & (255UL << 32U)) >>  8U) | 
+          ((Var & (255UL << 32U)) >>  8U) |
           ((Var & (255UL << 40U)) >> 24U) |
           ((Var & (255UL << 48U)) >> 40U) |
           ((Var & (255UL << 56U)) >> 56U);
@@ -117,9 +117,10 @@ static void ReadProfilingBlock(const char *ToolName, FILE *F,
     }
   }
 }
+template<class T>
 static void ReadProfilingBlockDouble(const char *ToolName, FILE *F,
                                bool ShouldByteSwap,
-                               std::vector<uint64_t> &Data) {
+                               std::vector<T> &Data) {
   // Read the number of entries...
   uint64_t NumEntries;
   if (fread(&NumEntries, sizeof(uint64_t), 1, F) != 1) {
@@ -145,12 +146,12 @@ static void ReadProfilingBlockDouble(const char *ToolName, FILE *F,
     Data.resize(NumEntries, 0);
 
   for (uint64_t i = 0; i != NumEntries; ++i) {
-     Data[i] = (uint64_t)TempSpace[i]; 
+     Data[i] = (T)TempSpace[i];
   }
 }
 
-static void ReadValueProfilingContents(const char* ToolName, FILE* F, 
-		bool ShouldByteSwap, const size_t Counts, 
+static void ReadValueProfilingContents(const char* ToolName, FILE* F,
+		bool ShouldByteSwap, const size_t Counts,
 		std::vector<std::vector<int> >& Data)
 {
 #define EXIT_IF_ERROR {\
@@ -195,7 +196,7 @@ ProfileInfoLoader::ProfileInfoLoader(const char *ToolName,
     perror(0);
     exit(1);
   }
-  if (0 == (fseek(F, 0, SEEK_END), ftell(F))) { 
+  if (0 == (fseek(F, 0, SEEK_END), ftell(F))) {
     // end == begin == 0, then it is empty
     errs() << " Warnning '" << Filename << "' seems empty\n";
   }
@@ -294,6 +295,10 @@ ProfileInfoLoader::ProfileInfoLoader(const char *ToolName,
    //add by haomeng
    case BlockInfoDouble:
       ReadProfilingBlockDouble(ToolName, F, ShouldByteSwap, BlockCounts);
+      break;
+   //add by haomeng
+   case MPITimeInfo:
+      ReadProfilingBlockDouble(ToolName, F, ShouldByteSwap, TimeMess);
       break;
 
    default:

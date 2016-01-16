@@ -65,13 +65,20 @@ double ProfileInfoT<MachineFunction, MachineBasicBlock>::MissingValue = -1;
 
 template<> double
 ProfileInfoT<Function,BasicBlock>::getExecutionCount(const CallInst* V) {
-	std::map<const CallInst*,ValueCounts>::iterator J = 
+	std::map<const CallInst*,ValueCounts>::iterator J =
 		ValueInformation.find(V);
 	if(J != ValueInformation.end()) return (double)J->second.Nums;
    auto L = MPIFullInformation.find(V);
    if(L != MPIFullInformation.end()) return (double) L->second.second;
    auto K = MPInformation.find(V);
    if(K != MPInformation.end()) return (double) K->second.second;
+	return MissingValue;
+}
+
+template<> double
+ProfileInfoT<Function,BasicBlock>::getMPITime(const CallInst* V) {
+   auto T = MPITimeInformation.find(V);
+   if(T != MPITimeInformation.end()) return (double) T->second.second;
 	return MissingValue;
 }
 
@@ -93,7 +100,7 @@ ProfileInfoT<Function,BasicBlock>::getValueContents(const CallInst* V) {
 	static std::vector<int> MissingContent(0);
 	static std::vector<int> ConstantContent;
 	static std::vector<int> UnCompress;
-	std::map<const CallInst*,ValueCounts>::iterator J = 
+	std::map<const CallInst*,ValueCounts>::iterator J =
 		ValueInformation.find(V);
 	if(J != ValueInformation.end()){
 		if(J->second.flags & CONSTANT_COMPRESS){
@@ -120,7 +127,7 @@ ProfileInfoT<Function,BasicBlock>::getValueContents(const CallInst* V) {
 }
 
 template<> unsigned
-ProfileInfoT<Function,BasicBlock>::getTrapedIndex(const Instruction* V) 
+ProfileInfoT<Function,BasicBlock>::getTrapedIndex(const Instruction* V)
 {
    if(const CallInst* CI = dyn_cast<CallInst>(V)){
       auto Found = MPIFullInformation.find(CI);
@@ -149,6 +156,19 @@ struct SortBasedIndex{
    }
 };
 
+struct SortBasedTime{
+   ProfileInfo& PI;
+   SortBasedTime(ProfileInfo& PI):PI(PI){}
+   int operator()(const Instruction* a, const Instruction* b)
+   {
+      const CallInst* aC = cast<CallInst>(a);
+      const CallInst* bC = cast<CallInst>(b);
+      if(aC != NULL && bC != NULL)
+          return PI.getMPITime(aC) > PI.getMPITime(bC);
+      return 0;
+   }
+};
+
 template<> std::vector<const Instruction*>
 ProfileInfoT<Function,BasicBlock>::getAllTrapedValues(ProfilingType PT) {
 	std::vector<const Instruction*> ret;
@@ -163,8 +183,11 @@ ProfileInfoT<Function,BasicBlock>::getAllTrapedValues(ProfilingType PT) {
    SELECT(SLG);
    SELECT(MP);
    SELECT(MPIFull);
-
-	std::sort(ret.begin(), ret.end(), SortBasedIndex(*this));
+   SELECT(MPITime);
+  if(PT != MPITimeInfo)
+	   std::sort(ret.begin(), ret.end(), SortBasedIndex(*this));
+  else
+     std::sort(ret.begin(), ret.end(), SortBasedTime(*this));
 #undef SELECT
 	return ret;
 }
@@ -279,7 +302,7 @@ double ProfileInfoT<MachineFunction, MachineBasicBlock>::
 template<>
 void ProfileInfoT<Function,BasicBlock>::
         setExecutionCount(const BasicBlock *BB, double w) {
-  DEBUG(dbgs() << "Creating Block " << BB->getName() 
+  DEBUG(dbgs() << "Creating Block " << BB->getName()
                << " (weight: " << format("%.20g",w) << ")\n");
   BlockInformation[BB->getParent()][BB] = w;
 }
@@ -498,7 +521,7 @@ void ProfileInfoT<Function,BasicBlock>::splitEdge(const BasicBlock *FirstBB,
     // one, only slice out a proporional part for NewBB.
     for(succ_const_iterator BBI = succ_begin(FirstBB), BBE = succ_end(FirstBB);
         BBI != BBE; ++BBI) {
-      if (*BBI == SecondBB) succ_count++;  
+      if (*BBI == SecondBB) succ_count++;
     }
     // When the NewBB is completely new, increment the count by one so that
     // the counts are properly distributed.
@@ -532,14 +555,14 @@ void ProfileInfoT<Function,BasicBlock>::splitBlock(const BasicBlock *Old,
   DEBUG(dbgs() << "Splitting " << Old->getName() << " to " << New->getName() << "\n");
 
   std::set<Edge> Edges;
-  for (EdgeWeights::iterator ewi = J->second.begin(), ewe = J->second.end(); 
+  for (EdgeWeights::iterator ewi = J->second.begin(), ewe = J->second.end();
        ewi != ewe; ++ewi) {
     Edge old = ewi->first;
     if (old.first == Old) {
       Edges.insert(old);
     }
   }
-  for (std::set<Edge>::iterator EI = Edges.begin(), EE = Edges.end(); 
+  for (std::set<Edge>::iterator EI = Edges.begin(), EE = Edges.end();
        EI != EE; ++EI) {
     Edge newedge = getEdge(New, EI->second);
     replaceEdge(*EI, newedge);
@@ -560,12 +583,12 @@ void ProfileInfoT<Function,BasicBlock>::splitBlock(const BasicBlock *BB,
     EdgeInformation.find(F);
   if (J == EdgeInformation.end()) return;
 
-  DEBUG(dbgs() << "Splitting " << NumPreds << " Edges from " << BB->getName() 
+  DEBUG(dbgs() << "Splitting " << NumPreds << " Edges from " << BB->getName()
                << " to " << NewBB->getName() << "\n");
 
   // Collect weight that was redirected over NewBB.
   double newweight = 0;
-  
+
   std::set<const BasicBlock *> ProcessedPreds;
   // For all requestes Predecessors.
   for (unsigned pred = 0; pred < NumPreds; ++pred) {
@@ -577,7 +600,7 @@ void ProfileInfoT<Function,BasicBlock>::splitBlock(const BasicBlock *BB,
 
       // Remember how much weight was redirected.
       newweight += getEdgeWeight(oldedge);
-    
+
       replaceEdge(oldedge,newedge);
     }
   }
@@ -672,7 +695,7 @@ bool ProfileInfoT<Function,BasicBlock>::
                  << format("%.20g", getEdgeWeight(edgetocalc)) << "\n");
     removed = edgetocalc;
     return true;
-  } else 
+  } else
   if (uncalculated == 2 && assumeEmptySelf && edgetocalc.first == edgetocalc.second && incount == outcount) {
     setEdgeWeight(edgetocalc, incount * 10);
     removed = edgetocalc;
@@ -777,7 +800,7 @@ void ProfileInfoT<Function,BasicBlock>::repair(const Function *F) {
   // The set of return edges (Edges with no successors).
   std::set<Edge> ReturnEdges;
   double ReturnWeight = 0;
-  
+
   // First iterate over the whole function and collect:
   // 1) The blocks in this function in the Unvisited set.
   // 2) The return edges in the ReturnEdges set.
@@ -1167,7 +1190,7 @@ namespace {
     NoProfileInfo() : ImmutablePass(ID) {
       //initializeNoProfileInfoPass(*PassRegistry::getPassRegistry());
     }
-    
+
     /// getAdjustedAnalysisPointer - This method is used when a pass implements
     /// an analysis interface through multiple inheritance.  If needed, it
     /// should override this to adjust the this pointer as needed for the
@@ -1177,7 +1200,7 @@ namespace {
         return (ProfileInfo*)this;
       return this;
     }
-    
+
     virtual const char *getPassName() const {
       return "NoProfileInfo";
     }

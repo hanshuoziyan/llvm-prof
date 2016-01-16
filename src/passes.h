@@ -12,7 +12,7 @@ namespace llvm{
       ProfileInfoLoader &PIL;
       public:
       static char ID; // Class identification, replacement for typeinfo.
-      explicit ProfileInfoPrinterPass(ProfileInfoLoader &_PIL) 
+      explicit ProfileInfoPrinterPass(ProfileInfoLoader &_PIL)
          : ModulePass(ID), PIL(_PIL) {}
 
       void getAnalysisUsage(AnalysisUsage &AU) const;
@@ -21,7 +21,7 @@ namespace llvm{
       void printExecutionCommands();
       void printFunctionCounts(std::vector<std::pair<Function*, double> >&
             FunctionCounts);
-      std::set<Function*> 
+      std::set<Function*>
          printBasicBlockCounts( std::vector<std::pair<BasicBlock*, double> >&
                Counts);
       void printAnnotatedCode(std::set<Function*>& FunctionToPrint,Module& M);
@@ -29,6 +29,7 @@ namespace llvm{
       void printValueContent();
       void printSLGCounts();
       void printMPICounts(ProfilingType Info);
+      void printMPITime(ProfilingType Info);
       virtual const char* getPassName() const {
          return "Print Profile Info";
       }

@@ -34,6 +34,7 @@ class ProfileInfoLoader {
   std::vector<std::string> CommandLines;
   std::vector<unsigned>    FunctionCounts;
   std::vector<uint64_t>    BlockCounts;
+  std::vector<double>      TimeMess;
   std::vector<uint64_t>    EdgeCounts;
   std::vector<unsigned>    OptimalEdgeCounts;
   std::vector<unsigned>    BBTrace;
@@ -67,6 +68,10 @@ public:
   const std::vector<uint64_t> &getRawBlockCounts() const {
     return BlockCounts;
   }
+  // getRawTimeMess - This method is used by consumers of mpi time information
+  const std::vector<double> &getRawTimeMess() const{
+    return TimeMess;
+  }
 
   // getEdgeCounts - This method is used by consumers of edge counting
   // information.
@@ -75,7 +80,7 @@ public:
     return EdgeCounts;
   }
 
-  // getEdgeOptimalCounts - This method is used by consumers of optimal edge 
+  // getEdgeOptimalCounts - This method is used by consumers of optimal edge
   // counting information.
   //
   const std::vector<unsigned> &getRawOptimalEdgeCounts() const {

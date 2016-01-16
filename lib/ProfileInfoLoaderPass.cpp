@@ -79,7 +79,7 @@ namespace {
         return (ProfileInfo*)this;
       return this;
     }
-    
+
     /// run - Load the profile information from the specified file.
     virtual bool runOnModule(Module &M);
   };
@@ -104,7 +104,7 @@ Pass *llvm::createProfileLoaderPass(const std::string &Filename) {
   return new LoaderPass(Filename);
 }
 
-void LoaderPass::readEdgeOrRemember(Edge edge, Edge &tocalc, 
+void LoaderPass::readEdgeOrRemember(Edge edge, Edge &tocalc,
                                     unsigned &uncalc, double &count) {
   double w;
   if ((w = getEdgeWeight(edge)) == MissingValue) {
@@ -313,7 +313,7 @@ bool LoaderPass::runOnModule(Module &M) {
   if(Counters.size() > 0) {
      unsigned MaxStore = std::accumulate(Counters.begin(), Counters.end(), 0, sig_max);
      std::vector<const Instruction*> Cache(MaxStore+1);
-     ReadCount = 0; 
+     ReadCount = 0;
      unsigned load_idx = 0, store_idx = 1;
      for(Module::iterator F = M.begin(), E = M.end(); F!=E; ++F){
         for(inst_iterator I = inst_begin(F), IE = inst_end(F); I!=IE; ++I){
@@ -326,7 +326,7 @@ bool LoaderPass::runOnModule(Module &M) {
               }else if(LoadInst* LI = dyn_cast<LoadInst>(&*I)){
                  SLGInformation[LI] = std::make_pair(load_idx, (Instruction*)NULL);
                  index = Counters[load_idx++];
-                 if(index == 0 || index == ~0U/*unsigned -1*/){ 
+                 if(index == 0 || index == ~0U/*unsigned -1*/){
                     continue;
                  }
               }
@@ -376,5 +376,28 @@ bool LoaderPass::runOnModule(Module &M) {
      }
   }
 
+  MPITimeInformation.clear();
+  std::vector<double> MPITimeCounters = PIL.getRawTimeMess();
+  if(MPITimeCounters.size() > 0) {
+     ReadCount = 0;
+     for(auto F = M.begin(), E = M.end(); F!=E; ++F){
+        for(auto I = inst_begin(F), IE = inst_end(F); I!=IE; ++I){
+           CallInst* CI = dyn_cast<CallInst>(&*I);
+           if(CI == NULL) continue;
+           Value* CV = const_cast<CallInst*>(CI)->getCalledValue();
+           Function* func = dyn_cast<Function>(lle::castoff(CV));
+           if(func == NULL)
+             errs()<<"No func!\n";
+           StringRef str = func->getName();
+           if(str.startswith("mpi_"))
+           {
+              if(str.startswith("mpi_init_")||str.startswith("mpi_comm_rank_")||str.startswith("mpi_comm_size_"))
+                 continue;
+              MPITimeInformation[CI] = std::make_pair(ReadCount, MPITimeCounters[ReadCount]);
+              ++ReadCount;
+           }
+        }
+     }
+  }
   return false;
 }
