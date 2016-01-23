@@ -799,9 +799,10 @@ void LatencyTiming::load_files(const char* file, double* param)
 std::map<std::string, treeNode*> LatencyTreeTiming::MPIFitFunc;//[std::string("allReduce")] = NULL;
 
 void LatencyTreeTiming::load_files(const char* file, double* param){
-   outs() << "init file in latency tree timing\n";
-   char* a[3] = {"allReduce","reduce","bcast"};
-   for(int i = 0; i < 3; i++){
+   //outs() << "init file in latency tree timing\n";
+   char* a[4] = {"./regressionData/allReduce","./regressionData/reduce","./regressionData/bcast","./regressionData/mpi_send"};
+   char* b[4] = {"allReduce","reduce","bcast","mpi_send"};
+   for(int i = 0; i < 4; i++){
       std::vector<std::string> mem;
       std::ifstream fs;
       fs.open(a[i]);
@@ -811,7 +812,8 @@ void LatencyTreeTiming::load_files(const char* file, double* param){
          s = str;
          mem.push_back(s);
       }
-      MPIFitFunc[a[i]] = createTree(mem,0);
+      MPIFitFunc[b[i]] = createTree(mem,0);
+      fs.close();
       //printTree(MPIFitFunc["allReduce"]);
    }
    
@@ -867,14 +869,17 @@ std::vector<double> getLeaf(double randsize[], treeNode* root){
 double doTree_cal(char* pname,double randsize[],std::map<std::string, treeNode*>& mpifitfunc){
    std::map<std::string, treeNode*>::iterator it;
    std::string name = pname;
-   if((it = mpifitfunc.find(name)) != mpifitfunc.end()){
+   outs()<<pname<<"\n"<<mpifitfunc.size()<<"\n";
+   if(mpifitfunc.size() != 0 &&(it = mpifitfunc.find(name)) != mpifitfunc.end()){
       treeNode*& tmp = it->second;
       std::vector<double> result = getLeaf(randsize,tmp);
-      return result[0]+result[1]*randsize[0]+result[2]*randsize[1];
-   }else{
+      outs()<<result.size()<<"\n";
+      if(result.size() == 3)
+         return result[0]+result[1]*randsize[0]+result[2]*randsize[1];
+   }
       outs() << "can not find " << name << "##\n";
       return -1.0;
-   }
+   
 } 
 
 double do_cal(const char* name, double randsize[], int fixed, 
@@ -902,14 +907,14 @@ double do_cal(const char* name, double randsize[], int fixed,
 //added by hanshuo
 double LatencyTreeTiming::count(const llvm::Instruction &I, double bfreq, double total) const
 {
-   outs() << "count latency tree timing\n";
+   //outs() << "count latency tree timing\n";
    return 0.0;
 }
 
 
 double LatencyTreeTiming::newcount(const llvm::Instruction &I, double bfreq, double total, int fixed) const
 {
-   outs() << "count latency tree timing\n";
+   //outs() << "count latency tree timing\n";
    using namespace lle;
    double randsize[2] = {R*1.0,total/bfreq};
     int temp;
@@ -929,10 +934,10 @@ double LatencyTreeTiming::newcount(const llvm::Instruction &I, double bfreq, dou
             randsize[0] = 2;
             return bfreq*doTree_cal("mpi_send",randsize,MPIFitFunc);
         case MPI_CT_ALLREDUCE:
-            randsize[1] = total/2;
+            //randsize[1] = total/2;
             return bfreq*doTree_cal("allReduce",randsize,MPIFitFunc);           
         case MPI_CT_REDUCE:
-            randsize[1] = total/2;
+            //randsize[1] = total/2;
             return bfreq*doTree_cal("reduce",randsize,MPIFitFunc);
         case MPI_CT_BCAST:
             return bfreq*doTree_cal("bcast",randsize,MPIFitFunc);
